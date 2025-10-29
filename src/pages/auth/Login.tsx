@@ -86,13 +86,19 @@ const Login = () => {
       const data = response.data;
       console.log("✅ Phản hồi đăng nhập:", data);
 
+
       // ✅ Lưu token & user
+      //Siêu quan trọng, cấm mày đụng dô 3 dòng if này
       if (data.accessToken) {
-        localStorage.setItem("token", data.accessToken);
+        localStorage.setItem("accessToken", data.accessToken);
+      }
+      if (data.refreshToken) {
+        localStorage.setItem("refreshToken", data.refreshToken);
       }
       if (data.user) {
         localStorage.setItem("user", JSON.stringify(data.user));
       }
+
 
       // ✅ Thông báo
       toast({

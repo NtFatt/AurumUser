@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowLeft, MapPin, Wallet, CreditCard } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, MapPin, Wallet, CreditCard, Gift } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/profile-ui/button';
 import { Input } from '@/components/profile-ui/input';
@@ -8,10 +8,12 @@ import { RadioGroup, RadioGroupItem } from '@/components/profile-ui/radio-group'
 import { Textarea } from '@/components/profile-ui/textarea';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { voucherService, type Voucher } from '@/lib/menu/voucherService';
 
 export default function Checkout() {
   const { items, subtotal, clearCart } = useCart();
   const navigate = useNavigate();
+
   const [pickupMethod, setPickupMethod] = useState('delivery');
   const [paymentMethod, setPaymentMethod] = useState('momo');
   const [formData, setFormData] = useState({
@@ -21,9 +23,30 @@ export default function Checkout() {
     note: '',
   });
 
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
+
   const serviceFee = 1.0;
   const deliveryFee = pickupMethod === 'delivery' ? 2.0 : 0;
-  const total = subtotal + serviceFee + deliveryFee;
+
+  // 🔹 Fetch voucher khả dụng
+  useEffect(() => {
+    const loadVouchers = async () => {
+      try {
+        const data = await voucherService.getAvailableVouchers();
+        setVouchers(data);
+      } catch {
+        console.warn('⚠️ Không thể tải voucher');
+      }
+    };
+    loadVouchers();
+  }, []);
+
+  // 🔹 Tính tiền sau khi chọn voucher
+  const discountAmount = selectedVoucher
+    ? (subtotal * selectedVoucher.discountPercent) / 100
+    : 0;
+  const total = subtotal + serviceFee + deliveryFee - discountAmount;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,18 +61,17 @@ export default function Checkout() {
       return;
     }
 
-    // Mock order creation
     const orderId = 'PL' + Date.now().toString().slice(-8);
-    
-    // Clear cart and navigate to success page
+
     clearCart();
-    navigate('/menu/ordersuccess', { state: { orderId, total } });
+    navigate('/menu/ordersuccess', {
+      state: { orderId, total, selectedVoucher },
+    });
     toast.success('Đặt hàng thành công!');
   };
 
   return (
     <div className="min-h-screen bg-background">
-
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Customer Info */}
@@ -63,7 +85,9 @@ export default function Checkout() {
                 <Input
                   id="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   placeholder="Nguyễn Văn A"
                   className="mt-2 rounded-xl"
                   required
@@ -75,7 +99,9 @@ export default function Checkout() {
                   id="phone"
                   type="tel"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, phone: e.target.value })
+                  }
                   placeholder="0912345678"
                   className="mt-2 rounded-xl"
                   required
@@ -121,7 +147,9 @@ export default function Checkout() {
                 <Textarea
                   id="address"
                   value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, address: e.target.value })
+                  }
                   placeholder="Số nhà, tên đường, phường/xã, quận/huyện"
                   className="mt-2 rounded-xl resize-none"
                   rows={3}
@@ -135,7 +163,9 @@ export default function Checkout() {
               <Textarea
                 id="note"
                 value={formData.note}
-                onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, note: e.target.value })
+                }
                 placeholder="Yêu cầu đặc biệt về đơn hàng..."
                 className="mt-2 rounded-xl resize-none"
                 rows={2}
@@ -190,6 +220,60 @@ export default function Checkout() {
             </RadioGroup>
           </div>
 
+          {/* Voucher Section */}
+          <div className="bg-card rounded-2xl p-6 shadow-soft">
+            <div className="flex items-center gap-2 mb-4">
+              <Gift className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-bold text-card-foreground">
+                Mã giảm giá
+              </h2>
+            </div>
+
+            {vouchers.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                Chưa có voucher khả dụng
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {vouchers.map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedVoucher(
+                        selectedVoucher?.id === v.id ? null : v
+                      )
+                    }
+                    className={`p-4 border-2 rounded-xl text-left transition-colors ${
+                      selectedVoucher?.id === v.id
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border hover:border-primary'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-card-foreground">
+                        {v.code}
+                      </span>
+                      <span className="text-primary font-bold">
+                        -{v.discountPercent}%
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      HSD: {new Date(v.expiryDate).toLocaleDateString('vi-VN')}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {selectedVoucher && (
+              <p className="text-sm text-green-600 mt-3">
+                Đã áp dụng voucher: <b>{selectedVoucher.code}</b> (
+                -{selectedVoucher.discountPercent}%)
+              </p>
+            )}
+          </div>
+
           {/* Order Summary */}
           <div className="bg-card rounded-2xl p-6 shadow-medium">
             <h2 className="text-xl font-bold mb-4 text-card-foreground">
@@ -206,6 +290,7 @@ export default function Checkout() {
                   </span>
                 </div>
               ))}
+
               <div className="border-t pt-3 mt-3">
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-muted-foreground">Tạm tính</span>
@@ -219,6 +304,12 @@ export default function Checkout() {
                   <div className="flex justify-between text-sm mb-2">
                     <span className="text-muted-foreground">Phí giao hàng</span>
                     <span className="font-semibold">+${deliveryFee.toFixed(2)}</span>
+                  </div>
+                )}
+                {selectedVoucher && (
+                  <div className="flex justify-between text-sm mb-2 text-green-600">
+                    <span>Giảm giá ({selectedVoucher.code})</span>
+                    <span>- ${discountAmount.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-xl font-bold pt-3 border-t">

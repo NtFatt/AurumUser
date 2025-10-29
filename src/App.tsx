@@ -1,7 +1,15 @@
+// =============================================================
+// 🌐 ROUTER APP - PHÚC LONG COFFEE & TEA
+// -------------------------------------------------------------
+// ✅ Tích hợp ProtectedRoute mới (tự refresh token khi hết hạn)
+// ✅ Gộp toàn bộ route logic gọn gàng, dễ maintain
+// ✅ Toast thông báo toàn cục + CartContext + MainLayout
+// =============================================================
+
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { CartProvider } from "@/contexts/CartContext";
-import ProtectedRoute from "@/components/ProtectedRoute";
 import { Toaster } from "sonner";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import MainLayout from "@/layouts/MainLayout";
 
 // ===== AUTH =====
@@ -19,6 +27,7 @@ import MenuNotFound from "@/pages/menu/NotFound";
 import MenuIndex from "@/pages/menu/Index";
 import OrderHistory from "@/pages/menu/OrderHistory";
 import ProductModal from "@/components/ProductModal";
+import Promotions from "@/pages/menu/Promotions"; // ✅ ưu đãi
 
 // ===== PROFILE =====
 import ProfileHome from "@/pages/profile/Profile";
@@ -29,12 +38,9 @@ import VoucherPage from "@/pages/profile/Voucher";
 import ReviewProduct from "@/pages/profile/ReviewProduct";
 import Settings from "@/pages/profile/Settings";
 
-// ===== PROMOTIONS =====
-import Promotions from "@/pages/menu/Promotions"; // ✅ thêm dòng này
-
-// ======================
+// =============================================================
 // 🚀 MAIN APP COMPONENT
-// ======================
+// =============================================================
 function App() {
   return (
     <BrowserRouter>
@@ -49,7 +55,7 @@ function App() {
             <Route path="*" element={<AuthNotFound />} />
           </Route>
 
-          {/* ✅ ========== MENU & PROFILE (có sidebar) ========== */}
+          {/* ========== MENU & PROFILE (MainLayout có sidebar) ========== */}
           <Route element={<MainLayout />}>
             {/* MENU */}
             <Route path="/menu">
@@ -61,10 +67,11 @@ function App() {
               <Route path="ordersuccess" element={<OrderSuccess />} />
               <Route path="orderHistory" element={<OrderHistory />} />
               <Route path="product/:id" element={<ProductModal />} />
+              <Route path="promotions" element={<Promotions />} />
               <Route path="*" element={<MenuNotFound />} />
             </Route>
 
-            {/* PROFILE */}
+            {/* PROFILE (tất cả đều cần đăng nhập) */}
             <Route
               path="/profile"
               element={
@@ -97,7 +104,14 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route path="/profile/review" element={<ReviewProduct />} />
+            <Route
+              path="/profile/review"
+              element={
+                <ProtectedRoute>
+                  <ReviewProduct />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/profile/settings"
               element={
@@ -114,9 +128,6 @@ function App() {
                 </ProtectedRoute>
               }
             />
-
-            {/* ✅ Promotions nằm trong layout chung */}
-            <Route path="/menu/promotions" element={<Promotions />} />
           </Route>
 
           {/* ========== MẶC ĐỊNH & 404 ========== */}
@@ -124,7 +135,7 @@ function App() {
           <Route path="*" element={<Navigate to="/auth/login" replace />} />
         </Routes>
 
-        {/* 👇 Toast thông báo toàn cục */}
+        {/* ✅ Toast toàn cục */}
         <Toaster
           position="bottom-right"
           richColors

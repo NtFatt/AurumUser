@@ -5,6 +5,7 @@ import { Card } from "@/components/profile-ui/card";
 import { Textarea } from "@/components/profile-ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import axios from "axios";
 
 const ReviewProduct = () => {
   const navigate = useNavigate();
@@ -26,11 +27,52 @@ const ReviewProduct = () => {
     "Cập nhật trạng thái thường xuyên",
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast.success("Đã gửi đánh giá thành công!");
-    navigate("/profile/orders");
-  };
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  try {
+    const token =
+      localStorage.getItem("accessToken") ||
+      localStorage.getItem("token"); // 🟢 Tùy bạn đang lưu key nào khi login
+
+    if (!token) {
+      toast.error("Chưa đăng nhập, vui lòng đăng nhập lại");
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const productId = Number(params.get("productId")) || 1;
+
+    console.log("📦 Token FE gửi:", token);
+
+    const res = await axios.post(
+      "http://localhost:3000/api/reviews",
+      {
+        productId,
+        rating,
+        comment,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        withCredentials: true,
+      }
+    );
+
+    const data = res.data;
+    if (data.ok) {
+      toast.success("Đã gửi đánh giá thành công!");
+      navigate("/profile/orders");
+    } else {
+      toast.error(data.error || "Không thể gửi đánh giá");
+    }
+  } catch (error: any) {
+    console.error("❌ Axios error:", error);
+    toast.error("Lỗi kết nối máy chủ");
+  }
+};
 
   const toggleTag = (tag: string) => {
     setTags((prev) =>
@@ -50,11 +92,10 @@ const ReviewProduct = () => {
         <Star
           key={star}
           onClick={() => onChange(star)}
-          className={`w-7 h-7 cursor-pointer transition-transform hover:scale-110 ${
-            star <= value
-              ? "fill-[#236513] text-[#236513]"
-              : "text-muted-foreground"
-          }`}
+          className={`w-7 h-7 cursor-pointer transition-transform hover:scale-110 ${star <= value
+            ? "fill-[#236513] text-[#236513]"
+            : "text-muted-foreground"
+            }`}
         />
       ))}
     </div>
@@ -82,10 +123,11 @@ const ReviewProduct = () => {
         {/* Product info */}
         <Card className="p-4 flex items-center gap-4 shadow-soft border-border">
           <img
-            src="https://phuclong.com.vn/uploads/dish/tra-sua-phuc-long.jpg"
-            alt="Phúc Long Trà Sữa"
+            //src="https://images.unsplash.com/photo-1527169402691-a3d13e8d127b?w=400&h=400&fit=crop"
+            alt="Trà Sữa Phúc Long"
             className="w-20 h-20 rounded-xl object-cover"
           />
+
           <div className="flex-1">
             <h2 className="font-semibold text-lg text-card-foreground">
               Trà Sữa Phúc Long
@@ -106,10 +148,10 @@ const ReviewProduct = () => {
             {rating === 5
               ? "Tuyệt vời"
               : rating === 4
-              ? "Tốt"
-              : rating === 3
-              ? "Bình thường"
-              : "Cần cải thiện"}
+                ? "Tốt"
+                : rating === 3
+                  ? "Bình thường"
+                  : "Cần cải thiện"}
           </p>
         </Card>
 
@@ -167,11 +209,10 @@ const ReviewProduct = () => {
                 key={tag}
                 type="button"
                 onClick={() => toggleTag(tag)}
-                className={`px-3 py-1.5 text-sm rounded-full border transition-all ${
-                  tags.includes(tag)
-                    ? "bg-primary text-white border-primary"
-                    : "border-border text-muted-foreground hover:bg-accent"
-                }`}
+                className={`px-3 py-1.5 text-sm rounded-full border transition-all ${tags.includes(tag)
+                  ? "bg-primary text-white border-primary"
+                  : "border-border text-muted-foreground hover:bg-accent"
+                  }`}
               >
                 {tag}
               </button>

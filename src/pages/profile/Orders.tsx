@@ -3,120 +3,41 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/profile-ui/button";
 import { Card } from "@/components/profile-ui/card";
 import { Badge } from "@/components/profile-ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/profile-ui/tabs";
-import { ArrowLeft, Package, Clock, Truck, CheckCircle, XCircle, Star } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/profile-ui/tabs";
+import { ArrowLeft, Package, Clock, Truck, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
-
-interface OrderItem {
-  id: string;
-  productName: string;
-  productImage: string;
-  quantity: number;
-  price: number;
-  size?: string;
-  toppings?: string[];
-}
-
-interface Order {
-  id: string;
-  orderNumber: string;
-  date: string;
-  status: "pending" | "confirmed" | "delivering" | "completed" | "cancelled";
-  items: OrderItem[];
-  subtotal: number;
-  shippingFee: number;
-  discount: number;
-  total: number;
-  paymentMethod: string;
-  deliveryAddress?: string;
-  estimatedDelivery?: string;
-}
+import { orderService, Order } from "@/services/order.service"; // ✅ import service
 
 const Orders = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialStatus = searchParams.get("status") || "all";
   const [activeTab, setActiveTab] = useState(initialStatus);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - replace with actual API call
-  const [orders, setOrders] = useState<Order[]>([
-    {
-      id: "1",
-      orderNumber: "PL202501001",
-      date: "2025-01-10 14:30",
-      status: "pending",
-      items: [
-        {
-          id: "1",
-          productName: "Trà sữa ô long nướng",
-          productImage: "",
-          quantity: 2,
-          price: 45000,
-          size: "L",
-          toppings: ["Trân châu trắng", "Thạch cà phê"],
-        },
-        {
-          id: "2",
-          productName: "Cà phê sữa đá",
-          productImage: "",
-          quantity: 1,
-          price: 35000,
-          size: "M",
-        },
-      ],
-      subtotal: 125000,
-      shippingFee: 15000,
-      discount: 0,
-      total: 140000,
-      paymentMethod: "Momo",
-      deliveryAddress: "123 Nguyễn Huệ, Q.1, TP.HCM",
-      estimatedDelivery: "2025-01-10 15:30",
-    },
-    {
-      id: "2",
-      orderNumber: "PL202501002",
-      date: "2025-01-09 10:15",
-      status: "confirmed",
-      items: [
-        {
-          id: "3",
-          productName: "Trà đào cam sả",
-          productImage: "",
-          quantity: 1,
-          price: 42000,
-          size: "L",
-        },
-      ],
-      subtotal: 42000,
-      shippingFee: 15000,
-      discount: 5000,
-      total: 52000,
-      paymentMethod: "COD",
-      deliveryAddress: "456 Lê Lợi, Q.1, TP.HCM",
-      estimatedDelivery: "2025-01-09 11:00",
-    },
-    {
-      id: "3",
-      orderNumber: "PL202501003",
-      date: "2025-01-08 16:45",
-      status: "completed",
-      items: [
-        {
-          id: "4",
-          productName: "Freeze trà xanh",
-          productImage: "",
-          quantity: 2,
-          price: 48000,
-          size: "L",
-        },
-      ],
-      subtotal: 96000,
-      shippingFee: 0,
-      discount: 10000,
-      total: 86000,
-      paymentMethod: "Momo",
-    },
-  ]);
+  // 🧩 Fetch đơn hàng thật từ backend
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          toast.error("Vui lòng đăng nhập để xem đơn hàng");
+          navigate("/auth/login");
+          return;
+        }
+
+        const data = await orderService.getUserOrders(token);
+        setOrders(data);
+      } catch (err) {
+        toast.error("Không thể tải danh sách đơn hàng");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, [navigate]);
 
   const filterOrders = (status: string) => {
     if (status === "all") return orders;
@@ -154,30 +75,29 @@ const Orders = () => {
     return configs[status];
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("vi-VN", {
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
     }).format(amount);
-  };
 
-  const handleCancelOrder = (orderId: string) => {
+  const handleCancelOrder = (orderId: number) => {
     toast.success("Đơn hàng đã được hủy");
     setOrders((prev) =>
       prev.map((order) =>
-        order.id === orderId ? { ...order, status: "cancelled" as const } : order
+        order.id === orderId ? { ...order, status: "cancelled" } : order
       )
     );
   };
 
-  const handleReorder = (orderId: string) => {
+  const handleReorder = (orderId: number) => {
     toast.success("Đã thêm sản phẩm vào giỏ hàng");
     navigate("/cart");
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* 🧭 Header */}
       <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-50 shadow-md">
         <div className="flex items-center gap-3">
           <button
@@ -190,47 +110,37 @@ const Orders = () => {
         </div>
       </header>
 
-      {/* Tabs */}
+      {/* 🧱 Tabs */}
       <div className="sticky top-[60px] z-40 bg-background border-b">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full justify-start rounded-none h-auto p-0 bg-transparent border-b-0">
-            <TabsTrigger
-              value="all"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
-            >
-              Tất cả
-            </TabsTrigger>
-            <TabsTrigger
-              value="pending"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
-            >
-              Chờ xác nhận
-            </TabsTrigger>
-            <TabsTrigger
-              value="confirmed"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
-            >
-              Đã xác nhận
-            </TabsTrigger>
-            <TabsTrigger
-              value="delivering"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
-            >
-              Đang giao
-            </TabsTrigger>
-            <TabsTrigger
-              value="completed"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
-            >
-              Hoàn thành
-            </TabsTrigger>
+            {[
+              { key: "all", label: "Tất cả" },
+              { key: "pending", label: "Chờ xác nhận" },
+              { key: "confirmed", label: "Đã xác nhận" },
+              { key: "delivering", label: "Đang giao" },
+              { key: "completed", label: "Hoàn thành" },
+              { key: "cancelled", label: "Đã hủy" },
+            ].map((tab) => (
+              <TabsTrigger
+                key={tab.key}
+                value={tab.key}
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
+              >
+                {tab.label}
+              </TabsTrigger>
+            ))}
           </TabsList>
         </Tabs>
       </div>
 
-      {/* Orders List */}
+      {/* 📦 Danh sách đơn hàng */}
       <div className="p-4 space-y-4">
-        {filterOrders(activeTab).length === 0 ? (
+        {loading ? (
+          <p className="text-center text-muted-foreground py-10">
+            Đang tải danh sách đơn hàng...
+          </p>
+        ) : filterOrders(activeTab).length === 0 ? (
           <div className="text-center py-16">
             <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
               <Package className="w-12 h-12 text-muted-foreground" />
@@ -266,8 +176,8 @@ interface OrderCardProps {
     color: string;
   };
   formatCurrency: (amount: number) => string;
-  onCancel: (orderId: string) => void;
-  onReorder: (orderId: string) => void;
+  onCancel: (orderId: number) => void;
+  onReorder: (orderId: number) => void;
   onViewDetail: () => void;
 }
 
@@ -280,7 +190,7 @@ const OrderCard = ({
   onViewDetail,
 }: OrderCardProps) => {
   const statusConfig = getStatusConfig(order.status);
-const navigate = useNavigate();
+  const navigate = useNavigate();
 
   return (
     <Card className="overflow-hidden border-2 hover:border-primary/50 transition-colors">
@@ -288,7 +198,8 @@ const navigate = useNavigate();
       <div className="p-4 bg-accent/30 border-b flex items-center justify-between">
         <div>
           <p className="text-sm text-muted-foreground">
-            Mã đơn: <span className="font-semibold text-foreground">{order.orderNumber}</span>
+            Mã đơn:{" "}
+            <span className="font-semibold text-foreground">{order.orderNumber}</span>
           </p>
           <p className="text-xs text-muted-foreground mt-1">{order.date}</p>
         </div>
@@ -342,6 +253,7 @@ const navigate = useNavigate();
               </Button>
             </>
           )}
+
           {order.status === "completed" && (
             <>
               <Button
@@ -353,7 +265,7 @@ const navigate = useNavigate();
                 Đặt lại
               </Button>
               <Button
-                onClick={() => navigate(`/profile/review?orderId=${order.id}`)} // ✅ Thêm điều hướng
+                onClick={() => navigate(`/profile/review?orderId=${order.id}`)}
                 size="sm"
                 className="flex-1 bg-primary text-primary-foreground hover:opacity-90 rounded-xl"
               >
@@ -367,6 +279,7 @@ const navigate = useNavigate();
               Theo dõi đơn hàng
             </Button>
           )}
+
           {order.status === "cancelled" && (
             <Button onClick={() => onReorder(order.id)} size="sm" className="w-full">
               Đặt lại

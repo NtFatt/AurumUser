@@ -4,14 +4,27 @@ import { Button } from "@/components/profile-ui/button";
 import { Card } from "@/components/profile-ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/profile-ui/avatar";
 import { Badge } from "@/components/profile-ui/badge";
-import { Camera, ChevronRight, Settings, ShoppingCart, MessageCircle, User, Calendar, Mail, Phone, Star } from "lucide-react";
+import {
+  Camera,
+  ChevronRight,
+  Settings,
+  ShoppingCart,
+  MessageCircle,
+  User,
+  Calendar,
+  Mail,
+  Star,
+} from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
-import logo from "/images/logo_pl.png";
 
+// ==========================
+// 🧩 Interface người dùng
+// ==========================
 interface UserProfile {
   id: string;
-  username: string;
+  username?: string;
+  name?: string;
   email: string;
   phone?: string;
   fullName?: string;
@@ -23,56 +36,74 @@ interface UserProfile {
 
 const Profile = () => {
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<UserProfile>({
-    id: "1",
-    username: "nguyenthanhphat",
-    email: "phat@example.com",
-    phone: "0123456789",
-    fullName: "Nguyễn Thanh Phát",
-    avatar: "",
-    memberSince: "2024-01-01",
-  });
-
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isProfileComplete, setIsProfileComplete] = useState(false);
 
+  // =====================================================
+  // 🔹 Lấy thông tin user khi mở trang
+  // =====================================================
   useEffect(() => {
-    // Check if profile is complete
-    const complete = !!(profile.fullName && profile.gender && profile.dateOfBirth);
-    setIsProfileComplete(complete);
+    const fetchProfile = async () => {
+      const token = localStorage.getItem("accessToken");
+      const storedUser = localStorage.getItem("user");
+
+      if (!token || !storedUser) {
+        navigate("/login");
+        return;
+      }
+
+      try {
+        // ✅ Nếu backend có /users/me thì gọi API
+        const res = await api.get("/users/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setProfile(res.data);
+      } catch (error) {
+        console.warn("⚠️ Không thể gọi API /users/me, dùng localStorage thay thế.");
+        setProfile(JSON.parse(storedUser));
+      }
+    };
+
+    fetchProfile();
+  }, [navigate]);
+
+  // =====================================================
+  // 🔹 Kiểm tra hồ sơ đầy đủ hay chưa
+  // =====================================================
+  useEffect(() => {
+    if (profile) {
+      const complete = !!(profile.fullName && profile.gender && profile.dateOfBirth);
+      setIsProfileComplete(complete);
+    }
   }, [profile]);
 
+  // =====================================================
+  // 🔹 Hàm upload avatar
+  // =====================================================
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("Hàm handleAvatarUpload được gọi"); // 🟡 thêm dòng này
     const file = event.target.files?.[0];
     if (!file) return;
+
+    const token = localStorage.getItem("accessToken");
+    if (!token) return toast.error("Bạn chưa đăng nhập!");
 
     const formData = new FormData();
     formData.append("avatar", file);
 
-    // 🟡 Thêm log kiểm tra token ở đây
-    const token = localStorage.getItem("accessToken");
-    console.log("Access token hiện tại:", token);
-
     try {
-      interface UploadResponse {
-        message: string;
-        url: string;
-      }
-      console.log("📤 Gửi request upload đến:", api.defaults.baseURL + "/upload/avatar");
-      const res = await api.post<UploadResponse>("/upload/avatar", formData, {
+      const res = await api.post("/upload/avatar", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${token}`, // 🟢 Thêm dòng này luôn
+          Authorization: `Bearer ${token}`,
         },
       });
 
-
-
       if (res.data.url) {
-        setProfile((prev) => ({ ...prev, avatar: res.data.url }));
+        const updated = { ...profile!, avatar: res.data.url };
+        setProfile(updated);
+        localStorage.setItem("user", JSON.stringify(updated));
         toast.success("Ảnh đại diện đã được cập nhật!");
-      }
-      else {
+      } else {
         toast.error("Không nhận được link ảnh từ server!");
       }
     } catch (err) {
@@ -81,16 +112,26 @@ const Profile = () => {
     }
   };
 
-  const handleEditProfile = () => {
-    navigate("/profile/edit");
+  // =====================================================
+  // 🔹 Đăng xuất
+  // =====================================================
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("user");
+    toast.success("Đăng xuất thành công!");
+    navigate("/login");
   };
 
-  const orderStats = [
-    { label: "Chờ xác nhận", count: 2, status: "pending" },
-    { label: "Chờ lấy hàng", count: 1, status: "confirmed" },
-    { label: "Chờ giao hàng", count: 0, status: "delivering" },
-    { label: "Đánh giá", count: 3, status: "completed" },
-  ];
+  // =====================================================
+  // 🔹 Xử lý hiển thị
+  // =====================================================
+  if (!profile) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-muted-foreground">
+        Đang tải thông tin người dùng...
+      </div>
+    );
+  }
 
   const getInitials = (name?: string) => {
     if (!name) return "U";
@@ -102,48 +143,46 @@ const Profile = () => {
       .slice(0, 2);
   };
 
+  // =====================================================
+  // 🔹 Giả lập dữ liệu thống kê đơn hàng
+  // =====================================================
+  const orderStats = [
+    { label: "Chờ xác nhận", count: 2, status: "pending" },
+    { label: "Chờ lấy hàng", count: 1, status: "confirmed" },
+    { label: "Chờ giao hàng", count: 0, status: "delivering" },
+    { label: "Đánh giá", count: 3, status: "completed" },
+  ];
+
+  // =====================================================
+  // 🔹 Giao diện
+  // =====================================================
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary via-primary/95 to-background pb-20">
       {/* Header */}
       <header className="bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between sticky top-0 z-50 shadow-lg">
-        {/* 🟢 Logo Phúc Long */}
         <div className="flex items-center gap-2">
           <img
             src="/images/logo_pl.png"
             alt="Phúc Long Coffee & Tea"
             className="w-10 h-10 object-contain bg-white rounded-full p-1 shadow-md"
           />
-          <span className="font-semibold text-lg text-white tracking-tight">
-            Phúc Long
-          </span>
+          <span className="font-semibold text-lg text-white tracking-tight">Phúc Long</span>
         </div>
 
         <div className="flex items-center gap-4">
-          <button className="relative">
-            <ShoppingCart className="w-6 h-6" />
-            <span className="absolute -top-2 -right-2 bg-white text-primary rounded-full w-5 h-5 text-xs flex items-center justify-center font-semibold">
-              5
-            </span>
-          </button>
-
-          <button className="relative">
-            <MessageCircle className="w-6 h-6" />
-            <span className="absolute -top-2 -right-2 bg-white text-primary rounded-full w-5 h-5 text-xs flex items-center justify-center font-semibold">
-              16
-            </span>
-          </button>
+          <ShoppingCart className="w-6 h-6" />
+          <MessageCircle className="w-6 h-6" />
         </div>
       </header>
 
-
-      {/* Profile Section */}
+      {/* Profile section */}
       <div className="px-4 pt-6 pb-8">
         <div className="flex items-center gap-4 mb-6">
           <div className="relative">
             <Avatar className="w-24 h-24 border-4 border-white shadow-xl">
-              <AvatarImage src={profile.avatar} alt={profile.username} />
-              <AvatarFallback className="bg-gradient-to-br from-accent to-accent-foreground text-white text-2xl font-bold">
-                {getInitials(profile.fullName || profile.username)}
+              <AvatarImage src={profile.avatar} alt={profile.name || profile.username} />
+              <AvatarFallback className="bg-accent text-white text-2xl font-bold">
+                {getInitials(profile.fullName || profile.name || profile.username)}
               </AvatarFallback>
             </Avatar>
             <input
@@ -159,28 +198,24 @@ const Profile = () => {
             >
               <Camera className="w-4 h-4 text-primary" />
             </label>
-
           </div>
 
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <h1 className="text-2xl font-bold text-white">{profile.username}</h1>
+              <h1 className="text-2xl font-bold text-white">
+                {profile.fullName || profile.name || profile.username}
+              </h1>
               <Badge className="bg-white/20 text-white border-white/40 hover:bg-white/30">
                 Thành viên
               </Badge>
             </div>
-            <div className="flex gap-6 text-white/90 text-sm">
-              <button className="hover:text-white transition-colors">
-                <span className="font-semibold">0</span> Người theo dõi
-              </button>
-              <button className="hover:text-white transition-colors">
-                <span className="font-semibold">21</span> Đang theo dõi
-              </button>
-            </div>
+            <p className="text-white/80 text-sm">{profile.email}</p>
+            {profile.phone && (
+              <p className="text-white/80 text-sm">📞 {profile.phone}</p>
+            )}
           </div>
         </div>
 
-        {/* Profile Completion Alert */}
         {!isProfileComplete && (
           <Card className="bg-white/95 backdrop-blur-sm border-none shadow-lg p-4 mb-4">
             <div className="flex items-start gap-3">
@@ -192,16 +227,13 @@ const Profile = () => {
                   Vui lòng chọn <span className="font-semibold text-foreground">Tên, Giới tính, Ngày sinh</span> của bạn
                 </p>
                 <Button
-                  onClick={handleEditProfile}
+                  onClick={() => navigate("/profile/edit")}
                   variant="link"
                   className="h-auto p-0 text-primary font-semibold"
                 >
                   Thiết lập ngay
                 </Button>
               </div>
-              <button className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
-                ✕
-              </button>
             </div>
           </Card>
         )}
@@ -214,7 +246,8 @@ const Profile = () => {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-foreground">Đơn mua</h2>
             <button
-              onClick={() => navigate("/profile/orders")} className="flex items-center gap-1 text-sm text-primary hover:text-primary/80 transition-colors font-medium"
+              onClick={() => navigate("/profile/orders")}
+              className="flex items-center gap-1 text-sm text-primary hover:text-primary/80 transition-colors font-medium"
             >
               Xem lịch sử mua hàng
               <ChevronRight className="w-4 h-4" />
@@ -229,26 +262,12 @@ const Profile = () => {
                 className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-accent transition-colors group"
               >
                 <div className="relative">
-                  {stat.status === "pending" && (
-                    <div className="w-12 h-12 rounded-full bg-yellow-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      📋
-                    </div>
-                  )}
-                  {stat.status === "confirmed" && (
-                    <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      📦
-                    </div>
-                  )}
-                  {stat.status === "delivering" && (
-                    <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      🚚
-                    </div>
-                  )}
-                  {stat.status === "completed" && (
-                    <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      ⭐
-                    </div>
-                  )}
+                  <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center group-hover:scale-110 transition-transform">
+                    {stat.label === "Chờ xác nhận" && "📋"}
+                    {stat.label === "Chờ lấy hàng" && "📦"}
+                    {stat.label === "Chờ giao hàng" && "🚚"}
+                    {stat.label === "Đánh giá" && "⭐"}
+                  </div>
                   {stat.count > 0 && (
                     <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-white rounded-full text-xs flex items-center justify-center font-semibold">
                       {stat.count}
@@ -285,7 +304,6 @@ const Profile = () => {
             label="Đánh giá sản phẩm"
             onClick={() => navigate("/profile/review")}
           />
-
           <MenuItem
             icon={<Mail className="w-5 h-5" />}
             label="Thông báo"
@@ -298,13 +316,10 @@ const Profile = () => {
           />
         </div>
 
-        {/* Logout Button */}
+        {/* Logout */}
         <div className="px-4 mt-8 mb-8">
           <Button
-            onClick={() => {
-              toast.success("Đăng xuất thành công");
-              navigate("/login");
-            }}
+            onClick={handleLogout}
             variant="outline"
             className="w-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
           >
@@ -316,6 +331,9 @@ const Profile = () => {
   );
 };
 
+// ==========================
+// 🔸 Component con
+// ==========================
 interface MenuItemProps {
   icon: React.ReactNode;
   label: string;
