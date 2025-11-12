@@ -9,6 +9,7 @@ interface ProductCardProps {
   image: string;
   rating: number;
   discount?: number;
+  category?: string;
   onAddToCart: () => void;
 }
 

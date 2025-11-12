@@ -1,5 +1,4 @@
-// src/services/voucherService.ts
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+import API from "@/lib/apiClient";
 
 export interface Voucher {
   id: number;
@@ -15,113 +14,117 @@ export interface Voucher {
 // ============================================================
 export const voucherService = {
   // 🟢 Get all available vouchers
-  async getAvailableVouchers(token?: string): Promise<Voucher[]> {
+  async getAvailableVouchers(): Promise<Voucher[]> {
     try {
-      const headers: HeadersInit = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await API.get("/vouchers/available");
+      const data = res.data;
 
-      const response = await fetch(`${API_BASE_URL}/vouchers/available`, { headers });
-
-      if (!response.ok) {
-        console.warn(`⚠️ API /vouchers/available trả về lỗi ${response.status}`);
-        return getMockVouchers(); // fallback ngay
-      }
-
-      const data = await response.json();
-
-      // 🔍 Đảm bảo chỉ trả về array hợp lệ
+      // 🔍 Đảm bảo format hợp lệ
       if (Array.isArray(data)) return data;
       if (Array.isArray(data?.data)) return data.data;
 
-      console.warn("⚠️ API /vouchers/available trả về không đúng format:", data);
+      console.warn("⚠️ /vouchers/available trả về sai format:", data);
       return getMockVouchers();
     } catch (error) {
-      console.error("❌ Error fetching vouchers:", error);
-      return getMockVouchers();
+      console.error("❌ Lỗi khi lấy vouchers khả dụng:", error);
+      return getMockVouchers(); // fallback nếu lỗi mạng
     }
   },
 
   // 🟢 Get user's vouchers
-  async getUserVouchers(token: string): Promise<Voucher[]> {
+  async getUserVouchers(): Promise<Voucher[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/vouchers/my-vouchers`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await API.get("/vouchers/my-vouchers");
+      const data = res.data;
 
-      if (!response.ok) throw new Error("Failed to fetch user vouchers");
-
-      const data = await response.json();
-      return Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+      return Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+        ? data.data
+        : [];
     } catch (error) {
-      console.error("❌ Error fetching user vouchers:", error);
+      console.error("❌ Lỗi khi lấy vouchers của user:", error);
       return [];
     }
   },
 
   // 🟢 Redeem voucher
   async redeemVoucher(
-    voucherId: number,
-    token: string
+    voucherId: number
   ): Promise<{ success: boolean; message: string; voucher?: Voucher }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/vouchers/redeem/${voucherId}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const res = await API.post(`/vouchers/redeem/${voucherId}`);
+      const data = res.data;
 
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Failed to redeem voucher");
-
-      return { success: true, message: data.message, voucher: data.voucher };
+      return {
+        success: true,
+        message: data.message || "Đổi voucher thành công!",
+        voucher: data.voucher,
+      };
     } catch (error: any) {
-      console.error("❌ Error redeeming voucher:", error);
-      return { success: false, message: error.message };
+      console.error("❌ Lỗi khi redeem voucher:", error);
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message,
+      };
     }
   },
 
   // 🟢 Validate voucher code
   async validateVoucher(
     code: string,
-    orderAmount: number,
-    token?: string
+    orderAmount: number
   ): Promise<{ valid: boolean; discount?: number; message?: string }> {
     try {
-      const headers: HeadersInit = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await API.post("/vouchers/validate", { code, orderAmount });
+      const data = res.data;
 
-      const response = await fetch(`${API_BASE_URL}/vouchers/validate`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ code, orderAmount }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) return { valid: false, message: data.message };
-
-      return { valid: true, discount: data.discount, message: data.message };
+      return {
+        valid: true,
+        discount: data.discount,
+        message: data.message,
+      };
     } catch (error: any) {
-      console.error("❌ Error validating voucher:", error);
-      return { valid: false, message: error.message };
+      console.error("❌ Lỗi khi validate voucher:", error);
+      return {
+        valid: false,
+        message: error.response?.data?.message || error.message,
+      };
     }
   },
 };
 
 // ============================================================
-// 🧪 Mock data for dev (always safe fallback)
+// 🧪 Mock data cho dev (fallback an toàn)
 // ============================================================
 function getMockVouchers(): Voucher[] {
   const now = new Date();
-  const futureDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const future = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   return [
-    { id: 1, code: "WELCOME10", discountPercent: 10, requiredPoints: 0, expiryDate: futureDate.toISOString(), isUsed: false },
-    { id: 2, code: "SAVE15", discountPercent: 15, requiredPoints: 100, expiryDate: futureDate.toISOString(), isUsed: false },
-    { id: 3, code: "VIP20", discountPercent: 20, requiredPoints: 200, expiryDate: futureDate.toISOString(), isUsed: false },
+    {
+      id: 1,
+      code: "WELCOME10",
+      discountPercent: 10,
+      requiredPoints: 0,
+      expiryDate: future.toISOString(),
+      isUsed: false,
+    },
+    {
+      id: 2,
+      code: "SAVE15",
+      discountPercent: 15,
+      requiredPoints: 100,
+      expiryDate: future.toISOString(),
+      isUsed: false,
+    },
+    {
+      id: 3,
+      code: "VIP20",
+      discountPercent: 20,
+      requiredPoints: 200,
+      expiryDate: future.toISOString(),
+      isUsed: false,
+    },
   ];
 }

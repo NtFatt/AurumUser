@@ -1,21 +1,28 @@
 import { useState } from "react";
-import { Star, Camera, Video, ArrowLeft, CheckCircle2 } from "lucide-react";
+import {
+  Star,
+  Camera,
+  Video,
+  ArrowLeft,
+} from "lucide-react";
 import { Button } from "@/components/profile-ui/button";
 import { Card } from "@/components/profile-ui/card";
 import { Textarea } from "@/components/profile-ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import axios from "axios";
+import apiClient from "@/lib/apiClient"; // ✅ Dùng axios instance chuẩn
 
 const ReviewProduct = () => {
   const navigate = useNavigate();
 
+  // ⭐ State đánh giá
   const [rating, setRating] = useState(5);
   const [serviceRating, setServiceRating] = useState(5);
   const [deliveryRating, setDeliveryRating] = useState(5);
   const [driverRating, setDriverRating] = useState(5);
   const [comment, setComment] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
 
   const tagOptions = [
     "Chuyên nghiệp, chu đáo",
@@ -27,52 +34,77 @@ const ReviewProduct = () => {
     "Cập nhật trạng thái thường xuyên",
   ];
 
-  const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+  console.group("🧾 DEBUG ReviewProduct");
 
-  try {
-    const token =
-      localStorage.getItem("accessToken") ||
-      localStorage.getItem("token"); // 🟢 Tùy bạn đang lưu key nào khi login
+  // 🧩 Lấy token từ localStorage
+  const token =
+    localStorage.getItem("accessToken") ||
+    localStorage.getItem("token");
+
+  console.log("🔑 Token:", token);
+
+
+  // ✅ Gửi review
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
     if (!token) {
       toast.error("Chưa đăng nhập, vui lòng đăng nhập lại");
+      console.warn("⚠️ Không tìm thấy token trong localStorage");
+      console.groupEnd();
       return;
     }
-
     const params = new URLSearchParams(window.location.search);
     const productId = Number(params.get("productId")) || 1;
+    console.log("📦 productId:", productId);
 
-    console.log("📦 Token FE gửi:", token);
 
-    const res = await axios.post(
-      "http://localhost:3000/api/reviews",
-      {
+    try {
+      const payload = {
         productId,
         rating,
+        serviceRating,
+        deliveryRating,
+        driverRating,
         comment,
-      },
-      {
+        tags,
+      };
+
+      console.log("🛰️ [ReviewProduct] POST:", payload);
+
+      const res = await apiClient.post("/reviews", payload, {
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        withCredentials: true,
-      }
-    );
+      });
 
-    const data = res.data;
-    if (data.ok) {
-      toast.success("Đã gửi đánh giá thành công!");
-      navigate("/profile/orders");
-    } else {
-      toast.error(data.error || "Không thể gửi đánh giá");
+      console.log("📩 Response status:", res.status);
+      console.log("📩 Response data:", res.data);
+
+      if (res.status === 200 || res.status === 201) {
+        toast.success("✅ Gửi đánh giá thành công!");
+        console.groupEnd();
+        navigate("/profile/orders");
+      } else {
+        console.error("❌ BE trả lỗi:", res.data);
+        toast.error(res.data?.message || "Không thể gửi đánh giá");
+        console.groupEnd();
+      }
+    } catch (error: any) {
+      // 🟢 6️⃣ Log lỗi mạng hoặc backend
+      console.error("🚨 Axios Error:", error);
+      console.error("📄 Response data:", error.response?.data);
+      console.error("🔢 Status code:", error.response?.status);
+      toast.error("Lỗi kết nối máy chủ hoặc token hết hạn");
+      console.groupEnd();
     }
-  } catch (error: any) {
-    console.error("❌ Axios error:", error);
-    toast.error("Lỗi kết nối máy chủ");
-  }
-};
+  };
+
+  // ✅ Upload hình ảnh preview
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    setImageFiles(files);
+  };
 
   const toggleTag = (tag: string) => {
     setTags((prev) =>
@@ -80,6 +112,7 @@ const ReviewProduct = () => {
     );
   };
 
+  // ⭐ Component hiển thị sao
   const StarRating = ({
     value,
     onChange,
@@ -123,11 +156,10 @@ const ReviewProduct = () => {
         {/* Product info */}
         <Card className="p-4 flex items-center gap-4 shadow-soft border-border">
           <img
-            //src="https://images.unsplash.com/photo-1527169402691-a3d13e8d127b?w=400&h=400&fit=crop"
+            src="https://images.unsplash.com/photo-1527169402691-a3d13e8d127b?w=400&h=400&fit=crop"
             alt="Trà Sữa Phúc Long"
             className="w-20 h-20 rounded-xl object-cover"
           />
-
           <div className="flex-1">
             <h2 className="font-semibold text-lg text-card-foreground">
               Trà Sữa Phúc Long
@@ -157,14 +189,24 @@ const ReviewProduct = () => {
 
         {/* Upload buttons */}
         <div className="flex gap-4">
-          <Button
-            type="button"
-            variant="outline"
-            className="flex-1 border-primary text-primary hover:bg-primary/10 rounded-xl"
-          >
-            <Camera className="w-5 h-5 mr-2" />
-            Thêm Hình ảnh
-          </Button>
+          <label className="flex-1">
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleImageUpload}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-primary text-primary hover:bg-primary/10 rounded-xl"
+            >
+              <Camera className="w-5 h-5 mr-2" />
+              Thêm Hình ảnh
+            </Button>
+          </label>
+
           <Button
             type="button"
             variant="outline"
@@ -175,7 +217,21 @@ const ReviewProduct = () => {
           </Button>
         </div>
 
-        {/* Comment box */}
+        {/* Preview ảnh đã chọn */}
+        {imageFiles.length > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            {imageFiles.map((file, idx) => (
+              <img
+                key={idx}
+                src={URL.createObjectURL(file)}
+                alt={`Preview ${idx}`}
+                className="w-full h-24 rounded-lg object-cover"
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Comment */}
         <Textarea
           placeholder="Hãy chia sẻ cảm nhận của bạn về sản phẩm này..."
           value={comment}
@@ -184,7 +240,7 @@ const ReviewProduct = () => {
           rows={4}
         />
 
-        {/* Ratings for service, delivery, driver */}
+        {/* Extra ratings */}
         <Card className="p-6 shadow-soft space-y-4">
           <div>
             <h4 className="font-semibold mb-2">Dịch vụ của cửa hàng</h4>

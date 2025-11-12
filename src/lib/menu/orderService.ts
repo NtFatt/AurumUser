@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
+import API from "@/lib/apiClient";
 
 export interface OrderItemPayload {
   productId: number;
@@ -19,21 +19,62 @@ export interface OrderPayload {
 }
 
 export const orderService = {
-  async create(order: OrderPayload, token: string) {
-    console.log("🛰️ [orderService] POST", `${API_BASE_URL}/orders`, order);
-    const res = await fetch(`${API_BASE_URL}/orders`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(order),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      console.error("❌ [orderService] Error:", res.status, text);
-      throw new Error("Không thể tạo đơn hàng");
+  // 🟢 Tạo đơn hàng mới
+  async create(order: OrderPayload) {
+    try {
+      console.log("🛰️ [orderService] POST /orders", order);
+
+      const res = await API.post("/orders", order);
+      console.log("✅ [orderService] Đơn hàng đã được tạo:", res.data);
+
+      return res.data;
+    } catch (error: any) {
+      console.error("❌ [orderService] Lỗi khi tạo đơn:", error);
+
+      // Nếu BE trả lỗi có message
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        "Không thể tạo đơn hàng. Vui lòng thử lại.";
+
+      throw new Error(message);
     }
-    return await res.json();
+  },
+
+  // 🟢 Lấy danh sách đơn hàng của user (nếu cần dùng)
+  async getMyOrders() {
+    try {
+      const res = await API.get("/orders");
+      return res.data;
+    } catch (error: any) {
+      console.error("❌ [orderService] Lỗi khi lấy danh sách đơn:", error);
+      return [];
+    }
+  },
+
+  // 🟢 Lấy chi tiết 1 đơn hàng cụ thể
+  async getOrderById(orderId: number) {
+    try {
+      const res = await API.get(`/orders/${orderId}`);
+      return res.data;
+    } catch (error: any) {
+      console.error("❌ [orderService] Lỗi khi lấy chi tiết đơn:", error);
+      throw new Error(
+        error.response?.data?.message || "Không thể tải thông tin đơn hàng."
+      );
+    }
+  },
+
+  // 🟢 Hủy đơn hàng
+  async cancelOrder(orderId: number) {
+    try {
+      const res = await API.patch(`/orders/${orderId}/cancel`);
+      return res.data;
+    } catch (error: any) {
+      console.error("❌ [orderService] Lỗi khi hủy đơn:", error);
+      throw new Error(
+        error.response?.data?.message || "Không thể hủy đơn hàng."
+      );
+    }
   },
 };

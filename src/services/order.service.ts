@@ -1,5 +1,4 @@
-// src/services/order.service.ts
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+import API from "@/lib/apiClient";
 
 export interface OrderItem {
   id: number;
@@ -28,51 +27,38 @@ export interface Order {
 
 export const orderService = {
   /** 🟢 Lấy danh sách đơn hàng của user */
-  async getUserOrders(token: string): Promise<Order[]> {
+  async getUserOrders(): Promise<Order[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/orders`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      console.log("🛰️ [order.service] GET /orders");
+      const res = await API.get("/orders");
+      const data = res.data;
 
-      const result = await response.json();
+      // ✅ Chuẩn hóa dữ liệu trả về
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data?.data)) return data.data;
 
-      if (!response.ok) {
-        console.error("❌ API lỗi:", result);
-        throw new Error(result.message || "Không thể tải danh sách đơn hàng");
-      }
-
-      // ✅ BE trả { success, data }
-      return result.data || [];
-    } catch (error) {
-      console.error("❌ Lỗi khi lấy danh sách đơn hàng:", error);
+      console.warn("⚠️ /orders trả về format không hợp lệ:", data);
+      return [];
+    } catch (error: any) {
+      console.error("❌ [order.service] Lỗi khi lấy danh sách đơn:", error);
       return [];
     }
   },
 
   /** 🟢 Lấy lịch sử thay đổi trạng thái đơn hàng */
-  async getOrderHistory(orderId: number, token: string) {
+  async getOrderHistory(orderId: number) {
     try {
-      const response = await fetch(`${API_BASE_URL}/orders/${orderId}/history`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      console.log("🛰️ [order.service] GET /orders/:id/history", orderId);
+      const res = await API.get(`/orders/${orderId}/history`);
+      const data = res.data;
 
-      const result = await response.json();
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data?.data)) return data.data;
 
-      if (!response.ok) {
-        console.error("❌ API lỗi:", result);
-        throw new Error(result.message || "Không thể tải lịch sử đơn hàng");
-      }
-
-      // ✅ Trả về mảng lịch sử (OrderHistory[])
-      return result.data || [];
-    } catch (error) {
-      console.error("❌ Lỗi khi lấy lịch sử đơn hàng:", error);
+      console.warn("⚠️ /orders/:id/history trả về format không hợp lệ:", data);
+      return [];
+    } catch (error: any) {
+      console.error("❌ [order.service] Lỗi khi lấy lịch sử đơn hàng:", error);
       return [];
     }
   },
