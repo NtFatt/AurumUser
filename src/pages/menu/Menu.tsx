@@ -39,9 +39,9 @@ export default function Menu() {
     return matchesCategory && matchesSearch;
   });
 
-  // ✅ Giữ nguyên logic điều hướng
+  // ✅ Sửa navigate
   const handleProductClick = (product: any) => {
-    navigate(`/menu/product/${product.ProductID}`);
+    navigate(`/menu/product/${product.Id}`);
   };
 
   return (

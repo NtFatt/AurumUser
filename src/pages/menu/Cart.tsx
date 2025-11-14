@@ -1,11 +1,20 @@
-import { Minus, Plus, Trash2, ArrowLeft } from 'lucide-react';
-import { useCart } from '@/contexts/CartContext';
-import { Button } from '@/components/profile-ui/button';
-import { Textarea } from '@/components/profile-ui/textarea';
-import { useNavigate } from 'react-router-dom';
+import { Minus, Plus, Trash2 } from "lucide-react";
+import { useCart } from "@/contexts/CartContext";
+import { Button } from "@/components/profile-ui/button";
+import { Textarea } from "@/components/profile-ui/textarea";
+import { useNavigate } from "react-router-dom";
+
+// ✅ Hàm định dạng tiền tệ VNĐ
+const formatVND = (value: number) =>
+  new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0,
+  }).format(value);
 
 export default function Cart() {
-  const { items, updateQuantity, updateNote, removeItem, subtotal, totalItems } = useCart();
+  const { items, updateQuantity, updateNote, removeItem, subtotal, totalItems } =
+    useCart();
   const navigate = useNavigate();
 
   if (totalItems === 0) {
@@ -19,12 +28,14 @@ export default function Cart() {
               className="w-24 h-24"
             />
           </div>
-          <h2 className="text-2xl font-bold mb-2 text-foreground">Giỏ hàng trống</h2>
+          <h2 className="text-2xl font-bold mb-2 text-foreground">
+            Giỏ hàng trống
+          </h2>
           <p className="text-muted-foreground mb-6">
             Hãy thêm sản phẩm vào giỏ hàng để tiếp tục
           </p>
           <Button
-            onClick={() => navigate('/menu')}
+            onClick={() => navigate("/menu")}
             className="bg-gradient-primary text-primary-foreground rounded-xl"
           >
             Khám phá menu
@@ -34,12 +45,12 @@ export default function Cart() {
     );
   }
 
-  const serviceFee = 1.0;
+  // ✅ Phí dịch vụ cố định (có thể đổi theo % hoặc động)
+  const serviceFee = 1000;
   const total = subtotal + serviceFee;
 
   return (
     <div className="min-h-screen bg-background">
-
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="space-y-6">
           {items.map((item) => (
@@ -59,9 +70,9 @@ export default function Cart() {
                       <p className="text-sm text-muted-foreground">
                         Size: {item.size}
                       </p>
-                      {item.toppings.length > 0 && (
+                      {item.toppings?.length > 0 && (
                         <p className="text-sm text-muted-foreground">
-                          Topping: {item.toppings.join(', ')}
+                          Topping: {item.toppings.join(", ")}
                         </p>
                       )}
                     </div>
@@ -75,12 +86,15 @@ export default function Cart() {
                     </Button>
                   </div>
 
+                  {/* Số lượng + Giá */}
                   <div className="flex items-center justify-between mt-4">
                     <div className="flex items-center gap-3">
                       <Button
                         size="icon"
                         variant="outline"
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        onClick={() =>
+                          updateQuantity(item.id, item.quantity - 1)
+                        }
                         className="rounded-xl"
                       >
                         <Minus className="w-4 h-4" />
@@ -91,7 +105,9 @@ export default function Cart() {
                       <Button
                         size="icon"
                         variant="outline"
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        onClick={() =>
+                          updateQuantity(item.id, item.quantity + 1)
+                        }
                         className="rounded-xl"
                       >
                         <Plus className="w-4 h-4" />
@@ -99,14 +115,15 @@ export default function Cart() {
                     </div>
 
                     <span className="text-xl font-bold text-primary">
-                      ${(item.price * item.quantity).toFixed(2)}
+                      {formatVND(item.price * item.quantity)}
                     </span>
                   </div>
 
+                  {/* Ghi chú */}
                   <div className="mt-4">
                     <Textarea
                       placeholder="Ghi chú cho món này..."
-                      value={item.note || ''}
+                      value={item.note || ""}
                       onChange={(e) => updateNote(item.id, e.target.value)}
                       className="resize-none rounded-xl"
                       rows={2}
@@ -118,25 +135,25 @@ export default function Cart() {
           ))}
         </div>
 
-        {/* Summary */}
+        {/* ✅ Summary */}
         <div className="mt-8 bg-card rounded-2xl p-6 shadow-medium sticky bottom-0">
           <div className="space-y-3 mb-6">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Tạm tính</span>
-              <span className="font-semibold">${subtotal.toFixed(2)}</span>
+              <span className="font-semibold">{formatVND(subtotal)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Phí dịch vụ</span>
-              <span className="font-semibold">+${serviceFee.toFixed(2)}</span>
+              <span className="font-semibold">+{formatVND(serviceFee)}</span>
             </div>
             <div className="flex justify-between text-xl font-bold pt-3 border-t">
               <span>Tổng cộng</span>
-              <span className="text-primary">${total.toFixed(2)}</span>
+              <span className="text-primary">{formatVND(total)}</span>
             </div>
           </div>
 
           <Button
-            onClick={() => navigate('/menu/checkout')}
+            onClick={() => navigate("/menu/checkout")}
             className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground rounded-xl h-14 text-lg font-semibold shadow-medium"
           >
             Tiến hành thanh toán

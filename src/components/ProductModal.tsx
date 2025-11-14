@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Minus, Plus, ShoppingCart, Heart, Star } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -6,61 +6,20 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useCart } from "@/contexts/CartContext";
-import MainLayout from "@/layouts/MainLayout"; // ✅ dùng layout chung
-import Menu from "@/pages/menu/Menu";
-import Index from "@/pages/menu/Index";
-import { useNavigate } from 'react-router-dom';
+import { ProductService } from "@/lib/menu/productService";
+import { ToppingService } from "@/lib/menu/toppingService";
 
 const ProductModal = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { addItem } = useCart();
 
-  // 🧠 Mock dữ liệu — sau này thay bằng fetch API thật
-  const product = {
-    id: id || "65000101",
-    name: "Trà Sữa Ô Long",
-    sku: "65000101",
-    basePrice: 59000,
-    image:
-      "https://images.unsplash.com/photo-1542444459-db81e5e20460?w=500&h=500&fit=crop",
-    rating: 4.8,
-    reviews: 1234,
-    description:
-      "Trà Ô Long Đài Loan thơm ngon kết hợp cùng sữa tươi béo ngậy, tạo nên hương vị đặc trưng của Phúc Long.",
-    sizes: [
-      { id: "M", name: "M", price: -14000 },
-      { id: "L", name: "L", price: 0 },
-    ],
-    customizations: [
-      {
-        id: "sweetness",
-        label: "Độ ngọt",
-        choices: [
-          { value: "less", label: "Ít" },
-          { value: "normal", label: "Bình thường" },
-          { value: "more", label: "Nhiều" },
-        ],
-      },
-      {
-        id: "ice",
-        label: "Lượng đá",
-        choices: [
-          { value: "less", label: "Ít" },
-          { value: "normal", label: "Bình thường" },
-          { value: "more", label: "Nhiều" },
-        ],
-      },
-    ],
-    toppings: [
-      { id: "pearl", name: "Trân châu đen", price: 10000 },
-      { id: "jelly", name: "Thạch cà phê", price: 10000 },
-      { id: "pudding", name: "Pudding", price: 12000 },
-    ],
-  };
-
-  // 🧩 State
+  // ==========================
+  // 🧩 STATE
+  // ==========================
+  const [product, setProduct] = useState<any>(null);
+  const [toppings, setToppings] = useState<any[]>([]);
   const [quantity, setQuantity] = useState(1);
+  const [loading, setLoading] = useState(true);
   const [selectedSize, setSelectedSize] = useState("L");
   const [selectedToppings, setSelectedToppings] = useState<string[]>([]);
   const [customizations, setCustomizations] = useState<Record<string, string>>({
@@ -68,31 +27,79 @@ const ProductModal = () => {
     ice: "normal",
   });
 
-  // 🧮 Tính tổng giá
+  // ==========================
+  // 📦 LẤY DỮ LIỆU TỪ BE
+  // ==========================
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      try {
+        setLoading(true);
+        const [productData, toppingData] = await Promise.all([
+          ProductService.getById(id),
+          ToppingService.getAll(),
+        ]);
+        setProduct(productData);
+        setToppings(toppingData);
+      } catch (err) {
+        console.error("❌ Lỗi tải chi tiết sản phẩm hoặc topping:", err);
+        toast.error("Không thể tải dữ liệu sản phẩm!");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [id]);
+
+  // ==========================
+  // ⚙️ LOADING / ERROR
+  // ==========================
+  if (loading)
+    return (
+      <div className="flex items-center justify-center min-h-screen text-muted-foreground">
+        Đang tải sản phẩm...
+      </div>
+    );
+
+  if (!product)
+    return (
+      <div className="flex items-center justify-center min-h-screen text-destructive">
+        Không tìm thấy sản phẩm
+      </div>
+    );
+
+  // ==========================
+  // 🧮 TÍNH GIÁ
+  // ==========================
+  const basePrice = product.Price || 0;
   const calculatePrice = () => {
-    const sizePrice =
-      product.sizes.find((s) => s.id === selectedSize)?.price || 0;
+    const sizePrice = selectedSize === "M" ? -14000 : 0;
     const toppingPrice = selectedToppings.reduce((sum, id) => {
-      const t = product.toppings.find((t) => t.id === id);
-      return sum + (t?.price || 0);
+      const t = toppings.find((tp) => tp.Id.toString() === id);
+      return sum + (t?.Price || 0);
     }, 0);
-    return (product.basePrice + sizePrice + toppingPrice) * quantity;
+    return (basePrice + sizePrice + toppingPrice) * quantity;
   };
 
-  // 🛒 Thêm vào giỏ
+  // ==========================
+  // 🛒 THÊM VÀO GIỎ
+  // ==========================
   const handleAddToCart = () => {
-    const numericId = Number(product.id); // ✅ ép thành số
+    const numericId = Number(product.Id);
     if (isNaN(numericId)) {
       toast.error("Sản phẩm không hợp lệ, không thể thêm vào giỏ hàng!");
       return;
     }
 
+    const toppingNames = toppings
+      .filter((t) => selectedToppings.includes(t.Id.toString()))
+      .map((t) => t.Name);
+
     addItem({
       productId: numericId,
-      name: product.name,
-      image: product.image,
+      name: product.Name,
+      image: product.ImageUrl || "https://placehold.co/500x500",
       size: selectedSize,
-      toppings: selectedToppings,
+      toppings: toppingNames,
       price: calculatePrice() / quantity,
       quantity,
       options: {
@@ -102,28 +109,23 @@ const ProductModal = () => {
     });
 
     toast.success("🛍️ Đã thêm vào giỏ hàng!", {
-      description: `${product.name} - ${quantity} ly (${selectedSize})`,
-    });
-
-    console.log("🧾 [DEBUG] Thêm vào giỏ hàng:", {
-      productId: numericId,
-      size: selectedSize,
-      toppings: selectedToppings,
-      options: customizations,
-      price: calculatePrice() / quantity,
+      description: `${product.Name} - ${quantity} ly (${selectedSize})`,
     });
   };
 
-
-  // 🧊 Toggle topping
+  // ==========================
+  // 🧊 CHỌN TOPPING
+  // ==========================
   const toggleTopping = (id: string) => {
     setSelectedToppings((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
 
+  // ==========================
+  // 🖼️ HIỂN THỊ
+  // ==========================
   return (
-
     <div className="container mx-auto px-4 py-8">
       {/* 🧭 Breadcrumb */}
       <div className="text-sm text-muted-foreground mb-6">
@@ -131,19 +133,16 @@ const ProductModal = () => {
         <span className="mx-2">/</span>
         <span>Menu</span>
         <span className="mx-2">/</span>
-        <span className="text-foreground font-semibold">
-          {product.name}
-        </span>
+        <span className="text-foreground font-semibold">{product.Name}</span>
       </div>
 
-      {/* 🔹 Grid chính */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Ảnh sản phẩm */}
         <div className="space-y-4">
           <Card className="overflow-hidden bg-muted/30">
             <img
-              src={product.image}
-              alt={product.name}
+              src={product.ImageUrl || "https://placehold.co/500x500"}
+              alt={product.Name}
               className="w-full h-[420px] object-cover"
             />
           </Card>
@@ -153,130 +152,87 @@ const ProductModal = () => {
             <Card className="p-4 text-center">
               <div className="flex items-center justify-center gap-2 mb-1">
                 <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                <span className="font-bold text-lg">{product.rating}</span>
+                <span className="font-bold text-lg">{product.Rating || 4.8}</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                {product.reviews} đánh giá
+                {product.Reviews || 0} đánh giá
               </p>
             </Card>
             <Card className="p-4 text-center">
-              <div className="font-bold text-lg mb-1 text-primary">
-                Best Seller
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Top 5 bán chạy
-              </p>
+              <div className="font-bold text-lg mb-1 text-primary">Best Seller</div>
+              <p className="text-sm text-muted-foreground">Top 5 bán chạy</p>
             </Card>
           </div>
         </div>
 
         {/* Thông tin chi tiết */}
         <div className="space-y-6">
-          {/* Tiêu đề */}
           <div className="flex items-start justify-between mb-2">
             <h1 className="text-3xl font-bold text-foreground">
-              {product.name} ({selectedSize})
+              {product.Name} ({selectedSize})
             </h1>
             <Button variant="ghost" size="icon">
               <Heart className="w-6 h-6" />
             </Button>
           </div>
 
-          <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
+          <p className="text-sm text-muted-foreground">Mã sản phẩm: {product.Id}</p>
 
           {/* Giá */}
           <div className="flex items-baseline gap-3">
             <span className="text-4xl font-bold text-primary">
               {calculatePrice().toLocaleString()}đ
             </span>
-            {selectedSize === "M" && (
-              <Badge variant="secondary">-14.000đ</Badge>
-            )}
+            {selectedSize === "M" && <Badge variant="secondary">-14.000đ</Badge>}
           </div>
 
           {/* Mô tả */}
           <p className="text-muted-foreground leading-relaxed">
-            {product.description}
+            {product.Description || "Chưa có mô tả cho sản phẩm này."}
           </p>
 
           {/* Kích cỡ */}
           <div>
-            <label className="block text-sm font-medium mb-3">
-              Chọn kích cỡ
-            </label>
+            <label className="block text-sm font-medium mb-3">Chọn kích cỡ</label>
             <div className="flex gap-3">
-              {product.sizes.map((size) => (
+              {["M", "L"].map((size) => (
                 <Button
-                  key={size.id}
-                  variant={selectedSize === size.id ? "default" : "outline"}
+                  key={size}
+                  variant={selectedSize === size ? "default" : "outline"}
                   className="flex-1 h-12 text-lg font-medium"
-                  onClick={() => setSelectedSize(size.id)}
+                  onClick={() => setSelectedSize(size)}
                 >
-                  {size.name}
-                  {size.price !== 0 && (
-                    <span className="ml-2 text-sm">
-                      ({size.price > 0 ? "+" : ""}
-                      {size.price.toLocaleString()}đ)
-                    </span>
-                  )}
+                  {size}
                 </Button>
               ))}
             </div>
           </div>
 
-          {/* Tùy chỉnh */}
-          {product.customizations.map((option) => (
-            <div key={option.id}>
-              <label className="block text-sm font-medium mb-3">
-                {option.label}
-              </label>
-              <div className="flex gap-3">
-                {option.choices.map((choice) => (
+          {/* Topping */}
+          <div>
+            <label className="block text-sm font-medium mb-3">Topping (tùy chọn)</label>
+            <div className="grid grid-cols-2 gap-3">
+              {toppings.length > 0 ? (
+                toppings.map((topping) => (
                   <Button
-                    key={choice.value}
+                    key={topping.Id}
                     variant={
-                      customizations[option.id] === choice.value
+                      selectedToppings.includes(topping.Id.toString())
                         ? "default"
                         : "outline"
                     }
-                    className="flex-1"
-                    onClick={() =>
-                      setCustomizations((prev) => ({
-                        ...prev,
-                        [option.id]: choice.value,
-                      }))
-                    }
+                    className="justify-between"
+                    onClick={() => toggleTopping(topping.Id.toString())}
                   >
-                    {choice.label}
+                    <span>{topping.Name}</span>
+                    <span className="text-primary">
+                      +{topping.Price.toLocaleString()}đ
+                    </span>
                   </Button>
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {/* Toppings */}
-          <div>
-            <label className="block text-sm font-medium mb-3">
-              Topping (tùy chọn)
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              {product.toppings.map((topping) => (
-                <Button
-                  key={topping.id}
-                  variant={
-                    selectedToppings.includes(topping.id)
-                      ? "default"
-                      : "outline"
-                  }
-                  className="justify-between"
-                  onClick={() => toggleTopping(topping.id)}
-                >
-                  <span>{topping.name}</span>
-                  <span className="text-primary">
-                    +{topping.price.toLocaleString()}đ
-                  </span>
-                </Button>
-              ))}
+                ))
+              ) : (
+                <p className="text-muted-foreground text-sm">Không có topping khả dụng</p>
+              )}
             </div>
           </div>
 
@@ -287,9 +243,7 @@ const ProductModal = () => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() =>
-                    setQuantity((q) => Math.max(1, q - 1))
-                  }
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                 >
                   <Minus className="w-4 h-4" />
                 </Button>
@@ -313,7 +267,6 @@ const ProductModal = () => {
             </Button>
           </div>
 
-          {/* Thông tin thêm */}
           <Card className="p-4 bg-muted/30">
             <h3 className="font-medium mb-2">Thông tin thêm</h3>
             <ul className="space-y-1 text-sm text-muted-foreground">

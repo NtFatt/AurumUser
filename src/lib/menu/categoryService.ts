@@ -2,7 +2,7 @@ import API from "@/lib/apiClient";
 
 export const CategoryService = {
   async getAll() {
-    const res = await API.get("/admin/category"); // hoặc /api/admin/category tùy BE
+    const res = await API.get("/admin/categories");
     return res.data?.data || [];
   },
 };

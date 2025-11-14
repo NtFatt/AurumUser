@@ -1,54 +1,40 @@
-import { useState } from "react";
-import { Package, Clock, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeft, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { Button } from "@/components/profile-ui/button";
 import { useNavigate } from "react-router-dom";
+import API from "@/lib/apiClient";
 
-/**
- * 🔹 Mô phỏng danh sách đơn hàng.
- * Trong thực tế, bạn sẽ lấy từ API BE qua fetch hoặc axios.
- */
-const mockOrders = [
-  {
-    id: "PL240001",
-    date: "2025-10-16",
-    status: "completed",
-    total: 12.5,
-    items: [
-      { name: "Trà sữa Phúc Long", quantity: 1, price: 4.5 },
-      { name: "Cà phê sữa đá", quantity: 1, price: 3.0 },
-      { name: "Bánh Croissant", quantity: 1, price: 5.0 },
-    ],
-  },
-  {
-    id: "PL239999",
-    date: "2025-10-14",
-    status: "processing",
-    total: 8.0,
-    items: [
-      { name: "Trà đào cam sả", quantity: 2, price: 4.0 },
-    ],
-  },
-  {
-    id: "PL239998",
-    date: "2025-10-10",
-    status: "cancelled",
-    total: 6.5,
-    items: [
-      { name: "Cà phê đen đá", quantity: 1, price: 2.5 },
-      { name: "Bánh su kem", quantity: 1, price: 4.0 },
-    ],
-  },
-];
+const formatVND = (value: number) =>
+  new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+    maximumFractionDigits: 0,
+  }).format(value);
 
 export default function OrderHistory() {
   const navigate = useNavigate();
-  const [orders] = useState(mockOrders);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // ✅ Gọi BE thật
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await API.get("/order-history/my");
+        setOrders(res.data?.data || []);
+      } catch (err) {
+        console.error("❌ Lỗi tải lịch sử đơn hàng:", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   const getStatusLabel = (status: string) => {
     switch (status) {
       case "completed":
         return (
-          <span className="inline-flex items-center gap-1 text-success font-medium">
+          <span className="inline-flex items-center gap-1 text-green-600 font-medium">
             <CheckCircle2 className="w-4 h-4" /> Hoàn thành
           </span>
         );
@@ -65,9 +51,20 @@ export default function OrderHistory() {
           </span>
         );
       default:
-        return null;
+        return (
+          <span className="inline-flex items-center gap-1 text-muted-foreground font-medium">
+            <Clock className="w-4 h-4" /> Chờ xử lý
+          </span>
+        );
     }
   };
+
+  if (loading)
+    return (
+      <div className="flex items-center justify-center min-h-screen text-muted-foreground">
+        Đang tải đơn hàng...
+      </div>
+    );
 
   return (
     <div className="min-h-screen bg-background">
@@ -110,38 +107,46 @@ export default function OrderHistory() {
           <div className="space-y-6">
             {orders.map((order) => (
               <div
-                key={order.id}
-                className="bg-card rounded-2xl p-6 shadow-soft transition-all hover:shadow-medium"
+                key={order.Id}
+                className="bg-card rounded-2xl p-6 shadow-soft hover:shadow-medium transition-all"
               >
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h2 className="font-bold text-lg text-card-foreground">
-                      Mã đơn: {order.id}
+                      Mã đơn: {order.Id || order.OrderCode}
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      Ngày đặt: {order.date}
+                      Ngày đặt:{" "}
+                      {new Date(order.CreatedAt || order.Date).toLocaleString(
+                        "vi-VN"
+                      )}
                     </p>
                   </div>
-                  {getStatusLabel(order.status)}
+                  {getStatusLabel(order.Status)}
                 </div>
 
-                <div className="border-t pt-3 mt-3 space-y-2">
-                  {order.items.map((item, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        {item.name} × {item.quantity}
-                      </span>
-                      <span className="font-semibold">
-                        ${(item.price * item.quantity).toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                {/* Danh sách sản phẩm nếu có */}
+                {order.Items?.length > 0 && (
+                  <div className="border-t pt-3 mt-3 space-y-2">
+                    {order.Items.map((item: any, idx: number) => (
+                      <div key={idx} className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          {item.ProductName} × {item.Quantity}
+                        </span>
+                        <span className="font-semibold">
+                          {formatVND(item.Price * item.Quantity)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="flex justify-between items-center border-t pt-4 mt-4">
-                  <span className="text-sm text-muted-foreground">Tổng cộng</span>
+                  <span className="text-sm text-muted-foreground">
+                    Tổng cộng
+                  </span>
                   <span className="text-xl font-bold text-primary">
-                    ${order.total.toFixed(2)}
+                    {formatVND(order.Total)}
                   </span>
                 </div>
               </div>
