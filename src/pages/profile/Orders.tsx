@@ -12,6 +12,7 @@ const Orders = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialStatus = searchParams.get("status") || "all";
+
   const [activeTab, setActiveTab] = useState(initialStatus);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,7 +28,7 @@ const Orders = () => {
           return;
         }
 
-        const data = await orderService.getUserOrders(token);
+        const data = await orderService.getUserOrders();
         setOrders(data);
       } catch (err: any) {
         console.warn("⚠️ Không thể tải danh sách đơn hàng:", err?.message || err);

@@ -6,7 +6,7 @@ import { Input } from "@/components/profile-ui/input";
 import { Label } from "@/components/profile-ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/profile-ui/radio-group";
 import { Textarea } from "@/components/profile-ui/textarea";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, NavigateFunction } from "react-router-dom";
 import { toast } from "sonner";
 import { voucherService, type Voucher } from "@/lib/menu/voucherService";
 import { orderService } from "@/lib/menu/orderService";
@@ -169,7 +169,7 @@ export default function Checkout() {
       setLoading(true);
       console.log("🛰️ [Checkout] Gửi đơn hàng:", orderPayload);
 
-      const res = await orderService.create(orderPayload, token);
+const res = await orderService.create(orderPayload); // xoá token nếu không cần
       console.log("✅ [Checkout] Đặt hàng thành công:", res);
 
       clearCart();
