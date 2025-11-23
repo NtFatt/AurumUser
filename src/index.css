@@ -2,96 +2,114 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* All design system tokens in HSL.
+   Primary color updated to #8B6B3E (hsl(37 38% 39%)).
 */
 
 @layer base {
-:root {
-  --background: 0 0% 100%;
-  --foreground: 270 8% 15%;
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 30 20% 20%;
 
-  --card: 0 0% 100%;
-  --card-foreground: 270 8% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 30 20% 20%;
 
-  --popover: 0 0% 100%;
-  --popover-foreground: 270 8% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 30 20% 20%;
 
-  /* 🟢 Màu chủ đạo Aurum */
-  --primary: 106 67% 25%;             /* #236513 */
-  --primary-foreground: 0 0% 100%;
-  --primary-light: 106 45% 35%;       /* xanh nhạt hơn một chút */
-  --primary-dark: 106 80% 15%;        /* xanh đậm hơn */
-  
-  --secondary: 120 16% 96%;           /* nền xám ngả xanh nhẹ */
-  --secondary-foreground: 270 8% 15%;
-
-  --muted: 120 10% 95%;
-  --muted-foreground: 270 8% 46%;
-
-  /* 🌼 Màu vàng điểm nhấn (accent) */
-  --accent: 45 95% 58%;               /* vàng chanh nhẹ */
-  --accent-foreground: 0 0% 100%;
-
-  /* ✅ Trạng thái thành công đồng bộ primary */
-  --success: 106 67% 25%;
-  --success-foreground: 0 0% 100%;
-
-  /* ❌ Trạng thái lỗi giữ nguyên đỏ */
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 100%;
-
-  --border: 120 10% 90%;
-  --input: 120 10% 90%;
-  --ring: 106 67% 25%;
-
-  --radius: 1rem;
-
-  /* 🌈 Premium gradients (theo tông xanh Aurum) */
-  --gradient-primary: linear-gradient(135deg, hsl(106 67% 25%), hsl(106 45% 35%));
-  --gradient-accent: linear-gradient(135deg, hsl(106 95% 58%), hsl(50 96% 65%));
-  --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(120 20% 98%));
-  
-  /* ☁️ Shadows tinh tế hơn (xanh lá thay tím) */
-  --shadow-soft: 0 2px 8px -2px hsl(106 67% 25% / 0.1);
-  --shadow-medium: 0 4px 16px -4px hsl(106 67% 25% / 0.15);
-  --shadow-strong: 0 8px 24px -8px hsl(106 67% 25% / 0.2);
-  --shadow-accent: 0 4px 16px -4px hsl(45 95% 58% / 0.25);
-
-  /* 🌀 Animations giữ nguyên */
-  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-}
-
-
-  .dark {
-    --background: 270 30% 8%;
-    --foreground: 0 0% 98%;
-
-    --card: 270 25% 12%;
-    --card-foreground: 0 0% 98%;
-
-    --popover: 270 25% 12%;
-    --popover-foreground: 0 0% 98%;
-
-    --primary: 266 83% 58%;
+    /* 🌟 Primary — #8B6B3E */
+    --primary: 37 38% 39%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 270 20% 18%;
-    --secondary-foreground: 0 0% 98%;
+    /* Sáng hơn (tăng lightness +16%) */
+    --primary-light: 37 38% 55%;
 
-    --muted: 270 20% 18%;
-    --muted-foreground: 270 8% 70%;
+    /* Tối hơn (giảm lightness -14%) */
+    --primary-dark: 37 38% 25%;
 
-    --accent: 38 92% 50%;
+    /* Nền phụ */
+    --secondary: 35 30% 92%;
+    --secondary-foreground: 30 20% 20%;
+
+    --muted: 35 20% 90%;
+    --muted-foreground: 30 10% 40%;
+
+    /* Accent vàng vẫn phù hợp */
+    --accent: 45 90% 58%;
     --accent-foreground: 0 0% 100%;
 
+    /* Success đồng bộ primary */
+    --success: 37 38% 39%;
+    --success-foreground: 0 0% 100%;
+
+    /* Error giữ nguyên để đảm bảo contrast */
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 270 20% 20%;
-    --input: 270 20% 20%;
-    --ring: 266 83% 58%;
+    --border: 35 20% 85%;
+    --input: 35 20% 85%;
+    --ring: 37 38% 39%;
+
+    --radius: 1rem;
+
+    /* 🎨 Premium gradients theo tông “latte brown” */
+    --gradient-primary: linear-gradient(
+      135deg,
+      hsl(37 38% 39%),
+      hsl(37 38% 55%)
+    );
+
+    --gradient-accent: linear-gradient(
+      135deg,
+      hsl(45 90% 58%),
+      hsl(37 38% 55%)
+    );
+
+    --gradient-card: linear-gradient(
+      145deg,
+      hsl(0 0% 100%),
+      hsl(35 20% 95%)
+    );
+
+    /* ☁️ Shadows tinh chỉnh theo primary */
+    --shadow-soft: 0 2px 8px -2px hsl(37 38% 39% / 0.10);
+    --shadow-medium: 0 4px 16px -4px hsl(37 38% 39% / 0.15);
+    --shadow-strong: 0 8px 24px -8px hsl(37 38% 39% / 0.20);
+    --shadow-accent: 0 4px 16px -4px hsl(45 90% 58% / 0.25);
+
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  /* 🌙 DARK MODE — tông nâu trầm sang, không dùng tím nữa */
+  .dark {
+    --background: 30 15% 12%;
+    --foreground: 35 25% 92%;
+
+    --card: 30 15% 14%;
+    --card-foreground: 35 25% 92%;
+
+    --popover: 30 15% 14%;
+    --popover-foreground: 35 25% 92%;
+
+    --primary: 37 38% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 30 10% 20%;
+    --secondary-foreground: 35 25% 92%;
+
+    --muted: 30 10% 20%;
+    --muted-foreground: 35 15% 70%;
+
+    --accent: 45 90% 60%;
+    --accent-foreground: 0 0% 0%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 0%;
+
+    --border: 30 10% 25%;
+    --input: 30 10% 25%;
+    --ring: 37 38% 55%;
   }
 }
 
