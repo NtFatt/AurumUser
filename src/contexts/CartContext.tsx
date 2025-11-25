@@ -5,6 +5,7 @@ export interface CartItem {
   id: string; // id duy nhất trong giỏ
   productId: number; // ID sản phẩm thực tế (để gửi API)
   name: string;
+  productName?: string;
   price: number;
   image: string;
   size: string;
@@ -68,18 +69,23 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Nếu chưa có, thêm mới
-      const newItem: CartItem = {
-        id: `${uniqueId}-${Date.now()}`,
-        productId,
-        name: item.name || "Sản phẩm chưa đặt tên",
-        price: item.price || 0,
-        image: item.image || "",
-        size,
-        toppings,
-        quantity,
-        note: item.note || "",
-        options,
-      };
+const realName = item.productName || item.name || "Sản phẩm";
+
+const newItem: CartItem = {
+  id: `${uniqueId}-${Date.now()}`,
+  productId,
+  name: realName,
+  productName: realName,   // ✔ đảm bảo luôn có tên
+  price: item.price || 0,
+  image: item.image || "",
+  size,
+  toppings,
+  quantity,
+  note: item.note || "",
+  options,
+};
+
+
 
       console.log("🛒 Thêm mới vào giỏ:", newItem);
       return [...prev, newItem];

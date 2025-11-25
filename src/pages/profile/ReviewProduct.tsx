@@ -1,21 +1,16 @@
 import { useState } from "react";
-import {
-  Star,
-  Camera,
-  Video,
-  ArrowLeft,
-} from "lucide-react";
+import { Star, Camera, Video, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/profile-ui/button";
 import { Card } from "@/components/profile-ui/card";
 import { Textarea } from "@/components/profile-ui/textarea";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import apiClient from "@/lib/apiClient"; // ✅ Dùng axios instance chuẩn
+import api from "@/lib/api"; // 💡 axios chuẩn của hệ thống
 
 const ReviewProduct = () => {
   const navigate = useNavigate();
 
-  // ⭐ State đánh giá
+  // ⭐ Rating state
   const [rating, setRating] = useState(5);
   const [serviceRating, setServiceRating] = useState(5);
   const [deliveryRating, setDeliveryRating] = useState(5);
@@ -23,7 +18,16 @@ const ReviewProduct = () => {
   const [comment, setComment] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const params = new URLSearchParams(window.location.search);
 
+  const productId = Number(params.get("productId"));
+  const productName = params.get("name") || "Sản phẩm đã mua";
+  const productImage =
+    params.get("image") ||
+    "https://cdn-icons-png.flaticon.com/512/6596/6596121.png"; // fallback
+  const productOptions = params.get("options") || "";
+
+  // FE-only preview images, BE chưa hỗ trợ upload
   const tagOptions = [
     "Chuyên nghiệp, chu đáo",
     "Thân thiện, linh hoạt",
@@ -34,73 +38,62 @@ const ReviewProduct = () => {
     "Cập nhật trạng thái thường xuyên",
   ];
 
-  console.group("🧾 DEBUG ReviewProduct");
+  // 🔑 Token chuẩn
+  const token = localStorage.getItem("auth_token");
 
-  // 🧩 Lấy token từ localStorage
-  const token =
-    localStorage.getItem("accessToken") ||
-    localStorage.getItem("token");
-
-  console.log("🔑 Token:", token);
-
-
-  // ✅ Gửi review
+  // 🟢 Submit review
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!token) {
-      toast.error("Chưa đăng nhập, vui lòng đăng nhập lại");
-      console.warn("⚠️ Không tìm thấy token trong localStorage");
-      console.groupEnd();
+      toast.error("Bạn cần đăng nhập để gửi đánh giá");
       return;
     }
-    const params = new URLSearchParams(window.location.search);
-    const productId = Number(params.get("productId")) || 1;
-    console.log("📦 productId:", productId);
 
+    // Lấy productId từ query string
+    const params = new URLSearchParams(window.location.search);
+    const productId = Number(params.get("productId"));
+
+    if (!productId) {
+      toast.error("Không xác định được sản phẩm để đánh giá");
+      return;
+    }
+
+    const payload = {
+      productId,
+      rating,
+      comment: comment.trim(),
+      serviceRating,
+      deliveryRating,
+      driverRating,
+      tags,
+      images: [], // BE chưa hỗ trợ upload file
+    };
 
     try {
-      const payload = {
-        productId,
-        rating,
-        serviceRating,
-        deliveryRating,
-        driverRating,
-        comment,
-        tags,
-      };
+      const res = await api.post(
+        "/reviews",
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-      console.log("🛰️ [ReviewProduct] POST:", payload);
-
-      const res = await apiClient.post("/reviews", payload, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      console.log("📩 Response status:", res.status);
-      console.log("📩 Response data:", res.data);
-
-      if (res.status === 200 || res.status === 201) {
-        toast.success("✅ Gửi đánh giá thành công!");
-        console.groupEnd();
+      if (res.data?.ok) {
+        toast.success("Gửi đánh giá thành công!");
         navigate("/profile/orders");
       } else {
-        console.error("❌ BE trả lỗi:", res.data);
         toast.error(res.data?.message || "Không thể gửi đánh giá");
-        console.groupEnd();
       }
-    } catch (error: any) {
-      // 🟢 6️⃣ Log lỗi mạng hoặc backend
-      console.error("🚨 Axios Error:", error);
-      console.error("📄 Response data:", error.response?.data);
-      console.error("🔢 Status code:", error.response?.status);
-      toast.error("Lỗi kết nối máy chủ hoặc token hết hạn");
-      console.groupEnd();
+    } catch (err: any) {
+      console.error("Review error:", err);
+      toast.error(err.response?.data?.message || "Lỗi kết nối máy chủ");
     }
   };
 
-  // ✅ Upload hình ảnh preview
+  // 🟣 Preview images
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
     setImageFiles(files);
@@ -112,7 +105,7 @@ const ReviewProduct = () => {
     );
   };
 
-  // ⭐ Component hiển thị sao
+  // ⭐ Component hiển thị rating
   const StarRating = ({
     value,
     onChange,
@@ -149,26 +142,31 @@ const ReviewProduct = () => {
         <h1 className="text-lg font-semibold">Đánh giá sản phẩm</h1>
       </header>
 
+      {/* Form */}
       <form
         onSubmit={handleSubmit}
         className="container mx-auto max-w-2xl px-4 py-6 space-y-6"
       >
-        {/* Product info */}
+        {/* Product info (tạm static, sau này lấy từ order item) */}
         <Card className="p-4 flex items-center gap-4 shadow-soft border-border">
           <img
-            src="https://images.unsplash.com/photo-1527169402691-a3d13e8d127b?w=400&h=400&fit=crop"
-            alt="Trà Sữa Aurum"
+            src={productImage}
+            alt={productName}
             className="w-20 h-20 rounded-xl object-cover"
           />
+
           <div className="flex-1">
             <h2 className="font-semibold text-lg text-card-foreground">
-              Trà Sữa Aurum
+              {productName}
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Size M · Đá: Vừa · Đường: 70%
-            </p>
+            {productOptions && (
+              <p className="text-sm text-muted-foreground">
+                {productOptions}
+              </p>
+            )}
           </div>
         </Card>
+
 
         {/* Product rating */}
         <Card className="p-6 shadow-soft">
@@ -176,18 +174,9 @@ const ReviewProduct = () => {
             Chất lượng sản phẩm
           </h3>
           <StarRating value={rating} onChange={setRating} />
-          <p className="text-sm text-muted-foreground mt-2">
-            {rating === 5
-              ? "Tuyệt vời"
-              : rating === 4
-                ? "Tốt"
-                : rating === 3
-                  ? "Bình thường"
-                  : "Cần cải thiện"}
-          </p>
         </Card>
 
-        {/* Upload buttons */}
+        {/* Upload image */}
         <div className="flex gap-4">
           <label className="flex-1">
             <input
@@ -203,7 +192,7 @@ const ReviewProduct = () => {
               className="w-full border-primary text-primary hover:bg-primary/10 rounded-xl"
             >
               <Camera className="w-5 h-5 mr-2" />
-              Thêm Hình ảnh
+              Thêm hình ảnh
             </Button>
           </label>
 
@@ -213,11 +202,10 @@ const ReviewProduct = () => {
             className="flex-1 border-primary text-primary hover:bg-primary/10 rounded-xl"
           >
             <Video className="w-5 h-5 mr-2" />
-            Thêm Video
+            Thêm video
           </Button>
         </div>
 
-        {/* Preview ảnh đã chọn */}
         {imageFiles.length > 0 && (
           <div className="grid grid-cols-3 gap-2">
             {imageFiles.map((file, idx) => (
@@ -233,7 +221,7 @@ const ReviewProduct = () => {
 
         {/* Comment */}
         <Textarea
-          placeholder="Hãy chia sẻ cảm nhận của bạn về sản phẩm này..."
+          placeholder="Hãy chia sẻ cảm nhận của bạn..."
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           className="resize-none rounded-xl"
@@ -243,7 +231,7 @@ const ReviewProduct = () => {
         {/* Extra ratings */}
         <Card className="p-6 shadow-soft space-y-4">
           <div>
-            <h4 className="font-semibold mb-2">Dịch vụ của cửa hàng</h4>
+            <h4 className="font-semibold mb-2">Dịch vụ cửa hàng</h4>
             <StarRating value={serviceRating} onChange={setServiceRating} />
           </div>
           <div>
@@ -256,7 +244,7 @@ const ReviewProduct = () => {
           </div>
         </Card>
 
-        {/* Tag suggestions */}
+        {/* Tags */}
         <Card className="p-6 shadow-soft">
           <h4 className="font-semibold mb-3">Mô tả thêm</h4>
           <div className="flex flex-wrap gap-2">

@@ -153,6 +153,7 @@ export default function Checkout() {
       lng: 106.700806,
       items: validItems.map((it) => ({
         productId: it.productId, // ✅ giữ nguyên number
+        productName: it.name,
         quantity: it.quantity,
         price: it.price,
         size: it.size || "",

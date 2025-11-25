@@ -96,7 +96,8 @@ const ProductModal = () => {
 
     addItem({
       productId: numericId,
-      name: product.Name,
+      productName: product.Name,   // ✔ thêm dòng này
+      name: product.Name,          // ✔ giữ name để FE dùng
       image: product.ImageUrl || "https://placehold.co/500x500",
       size: selectedSize,
       toppings: toppingNames,
@@ -107,6 +108,7 @@ const ProductModal = () => {
         ice: customizations.ice,
       },
     });
+
 
     toast.success("🛍️ Đã thêm vào giỏ hàng!", {
       description: `${product.Name} - ${quantity} ly (${selectedSize})`,
