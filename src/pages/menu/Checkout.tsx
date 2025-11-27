@@ -151,6 +151,14 @@ export default function Checkout() {
         pickupMethod === "delivery" ? formData.address : "Nhận tại cửa hàng",
       lat: 10.776889,
       lng: 106.700806,
+      // 🔑 CÁC TRƯỜNG MỚI ĐÃ THÊM VÀO PAYLOAD:
+      subtotal: subtotal, // Tạm tính
+      total: total, // Tổng cộng cuối cùng (đã bao gồm phí và giảm giá)
+      shippingFee: deliveryFee, // Phí giao hàng
+      serviceFee: serviceFee, // Phí dịch vụ
+      discountAmount: discountAmount, // Số tiền giảm giá
+      voucherCode: selectedVoucher?.code || null, // Mã voucher
+      // ------------------------------------------
       items: validItems.map((it) => ({
         productId: it.productId, // ✅ giữ nguyên number
         productName: it.name,
@@ -162,9 +170,7 @@ export default function Checkout() {
       })),
     };
 
-
     console.log("📦 Payload gửi về backend:", orderPayload);
-
     // =====================================================
     // 🧾 Gửi đơn hàng tới Backend
     // =====================================================
@@ -421,7 +427,7 @@ export default function Checkout() {
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-muted-foreground">Tạm tính</span>
                   <span className="font-semibold">{formatVND(subtotal)}
-</span>
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-muted-foreground">Phí dịch vụ</span>

@@ -6,18 +6,45 @@ import { Badge } from "@/components/profile-ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/profile-ui/tabs";
 import { ArrowLeft, Package, Clock, Truck, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
-import { orderService, Order } from "@/services/order.service"; // ✅ import service
+import { orderService, Order } from "@/services/order.service";
+// 🟢 BỔ SUNG: Import useCart để thao tác với giỏ hàng
+import { useCart } from "@/contexts/CartContext";
+
+
+// 🧩 ĐỊNH NGHĨA INTERFACE CHO ITEM (Đã có sẵn)
+interface OrderItem {
+  id?: number;
+  productId: number; // Quan trọng cho Đánh giá
+  productName: string;
+  quantity: number;
+  price: number;
+  size?: string;
+  imageUrl?: string; // ⚠️ Chú ý: tên trường này khác với CartItem.image
+  toppings?: string[];
+}
+
+// 🧩 MỞ RỘNG ORDER INTERFACE ĐỂ CHỨA ITEMS (Đã có sẵn)
+interface OrderWithItems extends Omit<Order, 'items'> {
+  items: OrderItem[];
+}
+
+// ====================================================================
+// 🏠 Component Orders
+// ====================================================================
 
 const Orders = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialStatus = searchParams.get("status") || "all";
 
-  const [activeTab, setActiveTab] = useState(initialStatus);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [activeTab, setActiveTab] = useState<string>(initialStatus);
+  const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🧩 Fetch đơn hàng thật từ backend
+  // 🟢 LẤY HÀM THÊM NHIỀU SẢN PHẨM TỪ CONTEXT
+  const { addMultipleItems } = useCart();
+
+  // 🧩 Fetch đơn hàng thật từ backend (logic giữ nguyên)
   useEffect(() => {
     const fetchOrders = async () => {
       try {
@@ -29,13 +56,10 @@ const Orders = () => {
         }
 
         const data = await orderService.getUserOrders();
-        setOrders(data);
+        setOrders(data as OrderWithItems[]);
       } catch (err: any) {
         console.warn("⚠️ Không thể tải danh sách đơn hàng:", err?.message || err);
-
-        // ❌ KHÔNG logout nữa — chỉ cảnh báo
         toast.warning("Không thể tải đơn hàng, vui lòng thử lại sau!");
-        // fallback: giữ data cũ
       } finally {
         setLoading(false);
       }
@@ -49,12 +73,19 @@ const Orders = () => {
     return orders.filter((order) => order.status === status);
   };
 
-  const getStatusConfig = (status: Order["status"]) => {
+  // ... (getStatusConfig và formatCurrency giữ nguyên)
+
+  const getStatusConfig = (status: OrderWithItems["status"]) => {
     const configs = {
       pending: {
         label: "Chờ xác nhận",
         icon: <Clock className="w-4 h-4" />,
         color: "bg-yellow-100 text-yellow-700 border-yellow-200",
+      },
+      processing: {
+        label: "Đang xử lý",
+        icon: <Package className="w-4 h-4" />,
+        color: "bg-orange-100 text-orange-700 border-orange-200",
       },
       confirmed: {
         label: "Đã xác nhận",
@@ -77,17 +108,23 @@ const Orders = () => {
         color: "bg-red-100 text-red-700 border-red-200",
       },
     };
-    return configs[status];
+
+    return configs[status] || {
+      label: "Không rõ",
+      icon: <Clock className="w-4 h-4" />,
+      color: "bg-gray-100 text-gray-700 border-gray-200",
+    };
   };
 
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
-    }).format(amount);
+    }).format(amount || 0);
 
+  // 📝 Giả lập việc hủy đơn hàng thành công (logic giữ nguyên)
   const handleCancelOrder = (orderId: number) => {
-    toast.success("Đơn hàng đã được hủy");
+    toast.success("Đơn hàng đã được hủy thành công!");
     setOrders((prev) =>
       prev.map((order) =>
         order.id === orderId ? { ...order, status: "cancelled" } : order
@@ -96,13 +133,39 @@ const Orders = () => {
   };
 
   const handleReorder = (orderId: number) => {
-    toast.success("Đã thêm sản phẩm vào giỏ hàng");
-    navigate("/cart");
+    const orderToReorder = orders.find(order => (order.id as number) === orderId);
+
+    if (!orderToReorder || orderToReorder.items.length === 0) {
+      toast.error("Không tìm thấy đơn hàng hoặc sản phẩm để đặt lại.");
+      return;
+    }
+
+    // Ánh xạ các trường cần thiết cho giỏ hàng
+    const itemsToReorder = orderToReorder.items.map(item => ({
+      productId: item.productId,
+      name: item.productName, // ✅ Dùng 'name' để khớp với CartItem
+      quantity: item.quantity,
+      size: item.size,
+      toppings: item.toppings,
+      price: item.price,
+      image: item.imageUrl || '', // 🔑 FIX: Ánh xạ imageUrl sang image
+      // Bỏ qua id ở đây, CartContext sẽ tự tạo id duy nhất
+    }));
+
+    // 🔑 GỌI HÀM THÊM NHIỀU SẢN PHẨM VÀO CONTEXT
+    addMultipleItems(itemsToReorder);
+
+    toast.success(`Đã thêm ${itemsToReorder.length} sản phẩm của đơn hàng #${orderId} vào giỏ hàng!`);
+    setTimeout(() => {
+      navigate("/cart");
+    }, 150);
   };
+
+  // ... (phần còn lại của return JSX giữ nguyên)
 
   return (
     <div className="min-h-screen bg-background">
-      {/* 🧭 Header */}
+      {/* ... (Header và Tabs) */}
       <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-50 shadow-md">
         <div className="flex items-center gap-3">
           <button
@@ -116,9 +179,9 @@ const Orders = () => {
       </header>
 
       {/* 🧱 Tabs */}
-      <div className="sticky top-[60px] z-40 bg-background border-b">
+      <div className="sticky top-[60px] z-40 bg-background border-b overflow-x-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full justify-start rounded-none h-auto p-0 bg-transparent border-b-0">
+          <TabsList className="w-full justify-start rounded-none h-auto p-0 bg-transparent border-b-0 min-w-max">
             {[
               { key: "all", label: "Tất cả" },
               { key: "pending", label: "Chờ xác nhận" },
@@ -130,7 +193,7 @@ const Orders = () => {
               <TabsTrigger
                 key={tab.key}
                 value={tab.key}
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 whitespace-nowrap"
               >
                 {tab.label}
               </TabsTrigger>
@@ -138,6 +201,7 @@ const Orders = () => {
           </TabsList>
         </Tabs>
       </div>
+
 
       {/* 📦 Danh sách đơn hàng */}
       <div className="p-4 space-y-4">
@@ -156,9 +220,9 @@ const Orders = () => {
             </Button>
           </div>
         ) : (
-          filterOrders(activeTab).map((order) => (
+          filterOrders(activeTab).map((order, idx) => (
             <OrderCard
-              key={order.id}
+              key={order.id || idx}
               order={order}
               getStatusConfig={getStatusConfig}
               formatCurrency={formatCurrency}
@@ -173,9 +237,14 @@ const Orders = () => {
   );
 };
 
+// ... (OrderCard component giữ nguyên)
+// ====================================================================
+// 💳 Component OrderCard
+// ====================================================================
+
 interface OrderCardProps {
-  order: Order;
-  getStatusConfig: (status: Order["status"]) => {
+  order: OrderWithItems;
+  getStatusConfig: (status: OrderWithItems["status"]) => {
     label: string;
     icon: React.ReactNode;
     color: string;
@@ -184,6 +253,10 @@ interface OrderCardProps {
   onCancel: (orderId: number) => void;
   onReorder: (orderId: number) => void;
   onViewDetail: () => void;
+}
+
+const getMainProduct = (items: OrderItem[] | undefined): OrderItem | null => {
+  return (items && items.length > 0) ? items[0] : null;
 }
 
 const OrderCard = ({
@@ -197,16 +270,33 @@ const OrderCard = ({
   const statusConfig = getStatusConfig(order.status);
   const navigate = useNavigate();
 
+  const mainProduct = getMainProduct(order.items);
+  const canReview = order.status === "completed" && mainProduct?.productId;
+
   return (
     <Card className="overflow-hidden border-2 hover:border-primary/50 transition-colors">
       {/* Header */}
       <div className="p-4 bg-accent/30 border-b flex items-center justify-between">
-        <div>
+        <div> {/* Bắt đầu div bên trái */}
           <p className="text-sm text-muted-foreground">
             Mã đơn:{" "}
-            <span className="font-semibold text-foreground">{order.orderNumber}</span>
+            <span className="font-semibold text-foreground">{order.orderNumber || (order as any).Id || order.id || 'Không rõ'}</span>
           </p>
-          <p className="text-xs text-muted-foreground mt-1">{order.date}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {new Date(order.date || (order as any).CreatedAt || (order as any).OrderDate || new Date()).toLocaleDateString('vi-VN')}
+          </p>
+
+          {mainProduct && (
+            <p className="text-sm font-medium mt-2 text-card-foreground/80">
+              {mainProduct.productName} ({mainProduct.quantity}x)
+              {order.items.length > 1 && (
+                <span className="text-muted-foreground text-xs ml-1">
+                  và {order.items.length - 1} sản phẩm khác
+                </span>
+              )}
+            </p>
+          )}
+
         </div>
         <Badge className={`${statusConfig.color} border flex items-center gap-1`}>
           {statusConfig.icon}
@@ -214,39 +304,17 @@ const OrderCard = ({
         </Badge>
       </div>
 
-      {/* Items */}
-      <div className="p-4 space-y-3">
-        {order.items.map((item) => (
-          <div key={item.id} className="flex gap-3">
-            <div className="w-16 h-16 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
-              <span className="text-2xl">☕</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="font-medium text-sm truncate">{item.productName}</h4>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {item.size && `Size: ${item.size}`}
-                {item.toppings && item.toppings.length > 0 && ` • ${item.toppings.join(", ")}`}
-              </p>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-xs text-muted-foreground">x{item.quantity}</span>
-                <span className="font-semibold text-sm">{formatCurrency(item.price)}</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
       {/* Footer */}
       <div className="p-4 bg-accent/20 border-t">
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm text-muted-foreground">Tổng tiền:</span>
-          <span className="text-lg font-bold text-primary">{formatCurrency(order.total)}</span>
+          <span className="text-lg font-bold text-primary">{formatCurrency(order.total || (order as any).TotalAmount || 0)}</span>
         </div>
         <div className="flex gap-2">
           {order.status === "pending" && (
             <>
               <Button
-                onClick={() => onCancel(order.id)}
+                onClick={() => onCancel(order.id as number)}
                 variant="outline"
                 size="sm"
                 className="flex-1"
@@ -259,10 +327,10 @@ const OrderCard = ({
             </>
           )}
 
-          {order.status === "completed" && (
+          {canReview && (
             <>
               <Button
-                onClick={() => onReorder(order.id)}
+                onClick={() => onReorder(order.id as number)}
                 variant="outline"
                 size="sm"
                 className="flex-1"
@@ -270,7 +338,9 @@ const OrderCard = ({
                 Đặt lại
               </Button>
               <Button
-                onClick={() => navigate(`/profile/review?orderId=${order.id}`)}
+                onClick={() => navigate(
+                  `/profile/review?productId=${mainProduct?.productId || ''}&name=${encodeURIComponent(mainProduct?.productName || '')}&image=${encodeURIComponent(mainProduct?.imageUrl || '')}`
+                )}
                 size="sm"
                 className="flex-1 bg-primary text-primary-foreground hover:opacity-90 rounded-xl"
               >
@@ -279,14 +349,15 @@ const OrderCard = ({
             </>
           )}
 
-          {(order.status === "confirmed" || order.status === "delivering") && (
+
+          {(!canReview && order.status !== "pending" && order.status !== "cancelled") && (
             <Button onClick={onViewDetail} size="sm" className="w-full">
               Theo dõi đơn hàng
             </Button>
           )}
 
           {order.status === "cancelled" && (
-            <Button onClick={() => onReorder(order.id)} size="sm" className="w-full">
+            <Button onClick={() => onReorder(order.id as number)} size="sm" className="w-full">
               Đặt lại
             </Button>
           )}

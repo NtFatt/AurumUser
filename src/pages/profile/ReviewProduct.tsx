@@ -39,8 +39,7 @@ const ReviewProduct = () => {
   ];
 
   // 🔑 Token chuẩn
-  const token = localStorage.getItem("auth_token");
-
+  const token = localStorage.getItem("accessToken");
   // 🟢 Submit review
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

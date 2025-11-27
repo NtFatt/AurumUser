@@ -27,6 +27,8 @@ interface CartContextType {
   clearCart: () => void;
   totalItems: number;
   subtotal: number;
+  // ✅ Hàm thêm nhiều sản phẩm
+  addMultipleItems: (items: Partial<CartItem>[]) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -34,30 +36,30 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  // 🛒 Thêm sản phẩm mới vào giỏ (tự hợp nhất nếu trùng)
-  const addItem = (item: Partial<CartItem>) => {
-    // ✅ Xử lý id sản phẩm (fallback)
+  // 📝 HÀM HỖ TRỢ: Xử lý logic thêm/hợp nhất 1 item vào state giỏ hàng
+  const processNewItem = (item: Partial<CartItem>) => {
+
     const productId = Number(item.productId || item.id);
     if (!productId || isNaN(productId)) {
-      console.warn("⚠️ Không có productId hợp lệ:", item);
+      console.warn("⚠️ Không có productId hợp lệ, bỏ qua:", item);
       return;
     }
 
     const size = item.size || "M";
     const toppings = item.toppings || [];
-    const options = item.options || {};
     const quantity = item.quantity || 1;
+    const realName = item.productName || item.name || "Sản phẩm";
 
-    // ✅ Tạo mã id duy nhất trong giỏ
-    const uniqueId = `${productId}-${size}-${toppings.join(",")}`;
+    // Tạo mã id duy nhất trong giỏ
+    const uniqueId = `${productId}-${size}-${toppings.join(",")}-${item.note || ""}`;
 
-    // Kiểm tra xem sản phẩm trùng (cùng loại, size, topping) đã có chưa
     setItems((prev) => {
       const existingIndex = prev.findIndex(
         (i) =>
           i.productId === productId &&
           i.size === size &&
           JSON.stringify(i.toppings) === JSON.stringify(toppings)
+        // ⚠️ Cân nhắc: Có nên hợp nhất nếu ghi chú (note) khác nhau không? Hiện tại không check note.
       );
 
       if (existingIndex !== -1) {
@@ -69,27 +71,33 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Nếu chưa có, thêm mới
-const realName = item.productName || item.name || "Sản phẩm";
-
-const newItem: CartItem = {
-  id: `${uniqueId}-${Date.now()}`,
-  productId,
-  name: realName,
-  productName: realName,   // ✔ đảm bảo luôn có tên
-  price: item.price || 0,
-  image: item.image || "",
-  size,
-  toppings,
-  quantity,
-  note: item.note || "",
-  options,
-};
-
-
+      const newItem: CartItem = {
+        // Dùng uniqueId và timestamp để đảm bảo item mới là duy nhất ngay cả khi trùng option
+        id: `${uniqueId}-${Date.now()}`,
+        productId,
+        name: realName,
+        price: item.price || 0,
+        image: item.image || "",
+        size,
+        toppings,
+        quantity,
+        note: item.note || "",
+        options: item.options || {},
+      };
 
       console.log("🛒 Thêm mới vào giỏ:", newItem);
       return [...prev, newItem];
     });
+  };
+
+  // 🛒 Thêm sản phẩm mới vào giỏ (chỉ 1 item)
+  const addItem = (item: Partial<CartItem>) => {
+    processNewItem(item);
+  };
+
+  // 🟢 Thêm nhiều sản phẩm (dùng trong Đặt lại)
+  const addMultipleItems = (newItems: Partial<CartItem>[]) => {
+    newItems.forEach(processNewItem);
   };
 
   // ❌ Xóa sản phẩm
@@ -130,6 +138,7 @@ const newItem: CartItem = {
       value={{
         items,
         addItem,
+        addMultipleItems, // ✅ Đã thêm vào value
         removeItem,
         updateQuantity,
         updateNote,
