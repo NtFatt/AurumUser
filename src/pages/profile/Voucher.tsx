@@ -36,48 +36,82 @@ export default function VoucherPage() {
     return new Date(dateString).toLocaleDateString("vi-VN");
   };
 
-  const VoucherCard = ({ voucher }: { voucher: Voucher }) => (
-    <Card className="overflow-hidden hover:shadow-medium transition-all">
-      <div className="flex flex-col md:flex-row">
-        <div className="bg-gradient-primary p-6 flex items-center justify-center md:w-32">
-          <div className="text-center text-primary-foreground">
-            <Percent className="h-8 w-8 mx-auto mb-2" />
-            <div className="text-2xl font-bold">{voucher.discountPercent}%</div>
-          </div>
-        </div>
+const VoucherCard = ({ voucher }: { voucher: Voucher }) => (
+  <Card className="overflow-hidden hover:shadow-medium transition-all">
+    <div className="flex flex-col md:flex-row">
 
-        <div className="flex-1 p-6">
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <h3 className="font-semibold text-lg mb-1">{voucher.code}</h3>
-              <p className="text-sm text-muted-foreground">
-                Giảm {voucher.discountPercent}% cho đơn hàng
-              </p>
-            </div>
-            {voucher.isUsed && <Badge variant="secondary">Đã sử dụng</Badge>}
-          </div>
-
-          <div className="space-y-2 mb-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              <span>HSD: {formatDate(voucher.expiryDate)}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm font-medium text-accent">
-              <Coins className="h-4 w-4" />
-              <span>{voucher.requiredPoints} điểm</span>
-            </div>
-          </div>
-
-          <Button
-            className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground rounded-xl"
-            onClick={() => toast.success("Đã lưu voucher vào tài khoản!")}
-          >
-            Lưu voucher
-          </Button>
+      {/* Left discount block */}
+      <div className="bg-gradient-primary p-6 flex items-center justify-center md:w-32">
+        <div className="text-center text-primary-foreground">
+          {voucher.discountAmount > 0 ? (
+            <>
+              <Coins className="h-8 w-8 mx-auto mb-2" />
+              <div className="text-2xl font-bold">
+                {voucher.discountAmount.toLocaleString("vi-VN")}đ
+              </div>
+            </>
+          ) : (
+            <>
+              <Percent className="h-8 w-8 mx-auto mb-2" />
+              <div className="text-2xl font-bold">{voucher.discountPercent}%</div>
+            </>
+          )}
         </div>
       </div>
-    </Card>
-  );
+
+      {/* Right info block */}
+      <div className="flex-1 p-6">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <h3 className="font-semibold text-lg mb-1">{voucher.code}</h3>
+
+            <p className="text-sm text-muted-foreground">
+              {voucher.discountAmount > 0
+                ? `Giảm ${voucher.discountAmount.toLocaleString("vi-VN")}đ cho đơn hàng`
+                : `Giảm ${voucher.discountPercent}% cho đơn hàng`}
+            </p>
+
+            {/* Điều kiện đơn tối thiểu */}
+            {voucher.minOrderValue > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Áp dụng cho đơn từ {voucher.minOrderValue.toLocaleString("vi-VN")}đ
+              </p>
+            )}
+
+            {/* Giảm tối đa (chỉ với voucher %) */}
+            {voucher.maxDiscountValue > 0 && voucher.discountPercent > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Giảm tối đa {voucher.maxDiscountValue.toLocaleString("vi-VN")}đ
+              </p>
+            )}
+          </div>
+
+          {voucher.isUsed && <Badge variant="secondary">Đã sử dụng</Badge>}
+        </div>
+
+        <div className="space-y-2 mb-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Calendar className="h-4 w-4" />
+            <span>HSD: {formatDate(voucher.expiryDate)}</span>
+          </div>
+
+          <div className="flex items-center gap-2 text-sm font-medium text-accent">
+            <Coins className="h-4 w-4" />
+            <span>{voucher.requiredPoints} điểm</span>
+          </div>
+        </div>
+
+        <Button
+          className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground rounded-xl"
+          onClick={() => toast.success("Đã lưu voucher vào tài khoản!")}
+        >
+          Lưu voucher
+        </Button>
+      </div>
+    </div>
+  </Card>
+);
+
 
   return (
     <div className="min-h-screen bg-background">

@@ -5,10 +5,13 @@ export interface Voucher {
   code: string;
   type: "percent" | "fixed";
   discountPercent: number;
-  value: number;
+  discountAmount: number;
+  maxDiscountValue: number;
+  minOrderValue: number;
   requiredPoints: number;
   expiryDate: string;
   isUsed?: boolean;
+
 }
 
 // ============================================================
@@ -21,28 +24,43 @@ export const voucherService = {
       const res = await API.get("/vouchers/available");
       const data = res.data;
 
-      // 🔍 Đảm bảo format hợp lệ
-      return data.data.map((v: any) => ({
-        id: v.id,
-        code: v.code,
-        type: v.Type?.toString().toLowerCase() === "percent" ? "percent" : "fixed",
-        discountPercent: v.DiscountPercent ?? 0,
-        value: v.discountValue ?? 0,
-        maxDiscount: v.MaxDiscount ?? 0,
-        minOrder: v.MinOrder ?? 0,
-        requiredPoints: v.RequiredPoints ?? 0,
-        expiryDate: v.expiryDate,
-        isUsed: v.IsUsed,
-      }));
+      console.log("🔥 RAW VOUCHER DATA RETURNED FROM API:", data);
 
+      return data.data.map((v: any) => {
+        // Xác định loại voucher
+        const isPercent =
+          (v.Type ?? "").toString().toLowerCase() === "percent";
 
-      console.warn("⚠️ /vouchers/available trả về sai format:", data);
-      return getMockVouchers();
+        return {
+          id: v.id,
+          code: v.code,
+          type: isPercent ? "percent" : "fixed",
+
+          // Percent voucher → DiscountPercent
+          discountPercent: isPercent ? v.DiscountPercent ?? 0 : 0,
+
+          // Fixed voucher → discountValue
+          discountAmount: !isPercent ? v.discountValue ?? 0 : 0,
+
+          // Điều kiện
+          minOrderValue: v.MinOrder ?? 0,
+          maxDiscountValue: v.MaxDiscount ?? 0,
+
+          requiredPoints: v.RequiredPoints ?? 0,
+
+          // expiryDate backend có thể là expiryDate hoặc ExpiryDate
+          expiryDate: v.expiryDate ?? v.ExpiryDate,
+
+          isUsed: v.IsUsed ?? false,
+        };
+      });
+
     } catch (error) {
       console.error("❌ Lỗi khi lấy vouchers khả dụng:", error);
-      return getMockVouchers(); // fallback nếu lỗi mạng
+      return getMockVouchers();
     }
-  },
+  }
+  ,
 
   // 🟢 Get user's vouchers
   async getUserVouchers(): Promise<Voucher[]> {
